@@ -1,8 +1,5 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
-import { AnnouncementBar } from "../components/announcement-bar";
-import { Navbar } from "../components/navbar";
-import { Footer } from "../components/footer";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -14,6 +11,11 @@ export const metadata: Metadata = {
   title: "ThinkPin — Guarda tus ideas",
   description:
     "Un rincón tranquilo para guardar pensamientos, referencias y pequeños descubrimientos.",
+  icons: {
+    icon: [{ url: "/favicon.svg", type: "image/svg+xml" }],
+    shortcut: "/favicon.svg",
+    apple: "/icon-light.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
@@ -21,13 +23,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="es"
       className={`${geistMono.variable} h-full antialiased`}
+      data-scroll-behavior="smooth"
     >
-      <body className="min-h-full flex flex-col">
-        <AnnouncementBar />
-        <Navbar />
-        {children}
-        <Footer />
-      </body>
+      <body className="min-h-full">{children}</body>
     </html>
   );
 }

@@ -24,7 +24,7 @@ export function Navbar() {
   }
 
   return (
-    <header className="apple-translucent sticky top-0 z-50 border-b border-border/50">
+    <header className="sticky top-0 z-50 border-b border-border/50 bg-surface-elevated lg:apple-translucent">
       <nav
         aria-label="Main navigation"
         className="mx-auto flex min-h-14 max-w-container-xl items-center justify-between gap-6 px-5 sm:min-h-16 sm:px-8"
@@ -69,17 +69,17 @@ export function Navbar() {
 
         <div className="hidden shrink-0 items-center gap-6 lg:flex">
           <a
-            href="#login"
+            href="/login"
             className="text-sm font-medium text-text transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
             Log in
           </a>
-          <a
-            href="#get-started"
+          <Link
+            href="/onboarding"
             className={getStartedClassName}
           >
             Get started
-          </a>
+          </Link>
         </div>
 
         <button
@@ -102,7 +102,7 @@ export function Navbar() {
       {menuOpen && (
         <div
           id="mobile-navigation"
-          className="apple-translucent absolute inset-x-0 top-full border-b border-border/50 px-5 py-4 shadow-lg lg:hidden"
+          className="absolute inset-x-0 top-full border-b border-border/50 bg-surface-elevated px-5 py-4 shadow-lg lg:hidden"
         >
           <div className="mx-auto flex max-w-container-xl flex-col gap-1">
             {links.map((link) => (
@@ -117,19 +117,19 @@ export function Navbar() {
             ))}
             <div className="mt-2 flex items-center gap-3 border-t border-border pt-3">
               <a
-                href="#login"
+                href="/login"
                 onClick={closeMenu}
                 className="rounded-md px-3 py-2.5 text-sm font-medium text-text-muted hover:text-text focus-visible:outline-2 focus-visible:outline-primary"
               >
                 Log in
               </a>
-              <a
-                href="#get-started"
+              <Link
+                href="/onboarding"
                 onClick={closeMenu}
                 className={getStartedClassName}
               >
                 Get started
-              </a>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { ArrowRight, Sparkles } from "lucide-react";
+import Link from "next/link";
 
 export function CTASection() {
   return (
@@ -25,13 +26,13 @@ export function CTASection() {
         <p className="mt-4 font-heading text-3xl leading-tight text-primary sm:text-4xl">
           Now give it a memory.
         </p>
-        <a
-          href="#get-started"
+        <Link
+          href="/onboarding"
           className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-[background-color,transform] active:scale-[0.97] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:mt-10 sm:text-base"
         >
           Start building your memory
           <ArrowRight aria-hidden="true" className="size-4" />
-        </a>
+        </Link>
       </div>
     </section>
   );

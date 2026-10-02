@@ -2,6 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
+import Link from "next/link";
 import { HeroProductPreview } from "./hero-product-preview";
 
 export function HeroSection() {
@@ -61,16 +62,13 @@ export function HeroSection() {
           }}
           className="mt-8 flex flex-col items-center gap-4 sm:mt-9 sm:flex-row"
         >
-          <motion.a
-            href="#get-started"
+          <Link
+            href="/onboarding"
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-[background-color,transform] active:scale-[0.97] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
-            whileHover={shouldReduceMotion ? undefined : { y: -2 }}
-            whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-            transition={{ type: "spring", stiffness: 400, damping: 24 }}
           >
             Start saving
             <ArrowRight aria-hidden="true" className="size-4" />
-          </motion.a>
+          </Link>
           <a
             href="#how-it-works"
             className="rounded-md px-2 py-2 text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
