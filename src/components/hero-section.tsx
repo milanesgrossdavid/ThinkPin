@@ -10,13 +10,13 @@ export function HeroSection() {
   return (
     <section
       aria-labelledby="hero-title"
-      className="relative isolate flex min-h-[min(760px,calc(100svh-100px))] items-center justify-center overflow-hidden bg-background px-5 py-24 sm:px-8 sm:py-32"
+      className="relative isolate flex min-h-[min(720px,calc(100svh-80px))] items-center justify-center overflow-hidden bg-background px-5 pb-16 pt-20 sm:px-8 sm:pb-24 sm:pt-24"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-[min(80vw,720px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--primary)_10%,transparent),transparent_70%)]"
+        className="pointer-events-none absolute left-1/2 top-[36%] -z-10 size-[min(80vw,720px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--primary)_7%,transparent),transparent_70%)]"
       />
-      <div className="mx-auto flex w-full max-w-4xl flex-col items-center text-center">
+      <div className="mx-auto flex w-full max-w-5xl flex-col items-center text-center">
         <motion.h1
           id="hero-title"
           initial={
@@ -28,7 +28,7 @@ export function HeroSection() {
             delay: shouldReduceMotion === true ? 0 : 0.08,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="font-heading text-6xl leading-[0.92] tracking-tight text-text sm:text-7xl md:text-8xl lg:text-[7.5rem]"
+          className="font-heading text-5xl font-semibold leading-[0.98] tracking-[-0.055em] text-text sm:text-7xl md:text-8xl lg:text-[6.5rem]"
         >
           Your Internet,
           <br />
@@ -44,7 +44,7 @@ export function HeroSection() {
             delay: shouldReduceMotion === true ? 0 : 0.2,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="mt-7 max-w-xl text-base leading-7 text-text-muted sm:mt-8 sm:text-lg sm:leading-8"
+          className="mt-6 max-w-xl text-base leading-7 text-text-muted sm:mt-7 sm:text-[19px] sm:leading-8"
         >
           Save anything you find online.
           <br className="hidden sm:block" /> Find it when it matters.
@@ -59,11 +59,11 @@ export function HeroSection() {
             delay: shouldReduceMotion === true ? 0 : 0.32,
             ease: [0.22, 1, 0.36, 1],
           }}
-          className="mt-9 flex flex-col items-center gap-5 sm:mt-10 sm:flex-row"
+          className="mt-8 flex flex-col items-center gap-4 sm:mt-9 sm:flex-row"
         >
           <motion.a
             href="#get-started"
-            className="inline-flex h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground shadow-sm transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-[background-color,transform] active:scale-[0.97] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
             whileHover={shouldReduceMotion ? undefined : { y: -2 }}
             whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 24 }}
@@ -73,7 +73,7 @@ export function HeroSection() {
           </motion.a>
           <a
             href="#how-it-works"
-            className="rounded-md px-2 py-2 text-sm font-medium text-text transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
+            className="rounded-md px-2 py-2 text-sm font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
             See how it works
           </a>

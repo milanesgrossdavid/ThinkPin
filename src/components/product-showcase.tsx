@@ -76,13 +76,13 @@ function BrowserFrame({
     <div
       role="img"
       aria-label={label}
-      className={`overflow-hidden rounded-2xl border border-border/80 bg-surface-elevated shadow-xl ring-1 ring-text/[0.03] ${className}`}
+      className={`overflow-hidden rounded-[24px] border border-border/50 bg-surface-elevated shadow-[0_24px_80px_-40px_rgba(0,0,0,0.26)] ring-1 ring-text/[0.03] ${className}`}
     >
-      <div className="flex h-10 items-center gap-1.5 border-b border-border bg-background/70 px-4">
-        <span className="size-2 rounded-full bg-error/70" />
-        <span className="size-2 rounded-full bg-warning/80" />
-        <span className="size-2 rounded-full bg-success/70" />
-        <div className="mx-auto flex h-6 w-[48%] items-center justify-center rounded-md bg-surface text-[10px] text-text-muted">
+      <div className="flex h-11 items-center gap-1.5 border-b border-border/50 bg-surface px-4">
+        <span className="size-2 rounded-full bg-[#ff5f57]" />
+        <span className="size-2 rounded-full bg-[#febc2e]" />
+        <span className="size-2 rounded-full bg-[#28c840]" />
+        <div className="mx-auto flex h-6 w-[48%] items-center justify-center rounded-full bg-background text-[10px] text-text-muted">
           thinkpin.app
         </div>
       </div>
@@ -155,7 +155,7 @@ function LibraryMockup() {
               return (
                 <article
                   key={item.title}
-                  className="overflow-hidden rounded-lg border border-border/80 bg-surface"
+                  className="overflow-hidden rounded-xl border border-border/50 bg-surface"
                 >
                   <div
                     className={`flex h-16 items-center justify-center bg-gradient-to-br ${item.color} sm:h-20`}
@@ -327,15 +327,15 @@ export function ProductShowcase() {
   return (
     <section
       aria-label="Explore the product"
-      className="overflow-hidden bg-surface px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="overflow-hidden bg-surface-elevated px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
-        <div className="space-y-16 sm:space-y-24 lg:space-y-32">
+        <div className="space-y-24 sm:space-y-32 lg:space-y-40">
           {showcaseItems.map((item, index) => (
             <article
               key={item.eyebrow}
               id={item.id}
-              className="grid items-center gap-8 lg:grid-cols-12 lg:gap-12"
+              className="grid items-center gap-10 lg:grid-cols-12 lg:gap-16"
             >
               <div
                 className={`lg:col-span-4 ${

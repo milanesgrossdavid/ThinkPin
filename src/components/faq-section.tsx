@@ -1,4 +1,8 @@
-import { Plus } from "lucide-react";
+"use client";
+
+import { useState } from "react";
+import { Minus, Plus as PlusData } from "lucide";
+import { MorphIcon } from "morphicons/react";
 
 const questions = [
   {
@@ -44,10 +48,26 @@ const questions = [
 ];
 
 export function FAQSection() {
+  const [openQuestions, setOpenQuestions] = useState<Set<string>>(
+    () => new Set(),
+  );
+
+  function toggleQuestion(question: string) {
+    setOpenQuestions((current) => {
+      const next = new Set(current);
+      if (next.has(question)) {
+        next.delete(question);
+      } else {
+        next.add(question);
+      }
+      return next;
+    });
+  }
+
   return (
     <section
       aria-labelledby="faq-title"
-      className="bg-background px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="bg-surface-elevated px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-3xl">
         <div className="mb-9 text-center sm:mb-12">
@@ -62,25 +82,46 @@ export function FAQSection() {
           </h2>
         </div>
 
-        <div className="divide-y divide-border border-y border-border">
-          {questions.map(({ question, answer }) => (
-            <details
-              key={question}
-              id={question === "Is my library private?" ? "faq-privacy" : undefined}
-              className="group"
-            >
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-left text-base font-medium text-text outline-none transition-colors hover:text-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:py-6 sm:text-lg [&::-webkit-details-marker]:hidden">
-                {question}
-                <Plus
-                  aria-hidden="true"
-                  className="size-5 shrink-0 text-text-muted transition-transform duration-200 group-open:rotate-45 group-open:text-primary"
-                />
-              </summary>
-              <p className="max-w-2xl pb-5 pr-8 text-sm leading-6 text-text-muted sm:pb-6 sm:text-base sm:leading-7">
-                {answer}
-              </p>
-            </details>
-          ))}
+        <div className="divide-y divide-border/60 border-y border-border/60">
+          {questions.map(({ question, answer }, index) => {
+            const isOpen = openQuestions.has(question);
+
+            return (
+              <div
+                key={question}
+                id={
+                  question === "Is my library private?"
+                    ? "faq-privacy"
+                    : undefined
+                }
+              >
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  aria-controls={`faq-answer-${index}`}
+                  onClick={() => toggleQuestion(question)}
+                  className="flex w-full cursor-pointer items-center justify-between gap-4 py-5 text-left text-[15px] font-medium tracking-[-0.01em] text-text outline-none transition-colors hover:text-primary focus-visible:text-primary focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:py-6 sm:text-base"
+                >
+                  {question}
+                  <MorphIcon
+                    icon={isOpen ? Minus : PlusData}
+                    aria-hidden="true"
+                    size={20}
+                    className="shrink-0 text-text-muted"
+                    spring="snappy"
+                    reducedMotion="user"
+                  />
+                </button>
+                <p
+                  id={`faq-answer-${index}`}
+                  hidden={!isOpen}
+                  className="max-w-2xl pb-5 pr-8 text-sm leading-6 text-text-muted sm:pb-6 sm:text-base sm:leading-7"
+                >
+                  {answer}
+                </p>
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

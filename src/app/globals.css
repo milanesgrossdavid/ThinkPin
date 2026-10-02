@@ -43,10 +43,10 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --font-sans: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
   --font-serif: var(--font-instrument-serif), "New York", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-serif);
+  --font-heading: var(--font-sans);
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -117,13 +117,13 @@
 
 :root {
   color-scheme: light;
-  --background: #e7e9ea;
-  --surface: #f7f8f9;
+  --background: #f5f5f7;
+  --surface: #fafafa;
   --surface-elevated: #ffffff;
-  --border: #d0d3d5;
-  --text: #464649;
-  --text-muted: #78797a;
-  --primary: #007aff;
+  --border: #d2d2d7;
+  --text: #1d1d1f;
+  --text-muted: #6e6e73;
+  --primary: #0071e3;
   --primary-foreground: #ffffff;
   --success: #65c467;
   --warning: #f2c944;
@@ -188,13 +188,13 @@
 
 .dark {
   color-scheme: dark;
-  --background: #2b2e30;
-  --surface: #34373a;
-  --surface-elevated: #3e4245;
-  --border: #4a4e51;
-  --text: #ececee;
-  --text-muted: #9a9ca0;
-  --primary: #0a84ff;
+  --background: #000000;
+  --surface: #1c1c1e;
+  --surface-elevated: #2c2c2e;
+  --border: #38383a;
+  --text: #f5f5f7;
+  --text-muted: #a1a1a6;
+  --primary: #2997ff;
   --primary-foreground: #ffffff;
   --success: #65c467;
   --warning: #f2c944;
@@ -236,9 +236,46 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
+    font-optical-sizing: auto;
   }
 
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
+    scroll-padding-top: 4.5rem;
+  }
+}
+
+@layer utilities {
+  .font-heading {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    letter-spacing: -0.045em;
+    font-optical-sizing: auto;
+  }
+}
+
+::selection {
+  color: var(--primary-foreground);
+  background: var(--primary);
+}
+
+.apple-translucent {
+  background-color: color-mix(in srgb, var(--surface-elevated) 78%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .apple-translucent {
+    background-color: var(--surface-elevated);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
   }
 }

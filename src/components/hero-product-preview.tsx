@@ -49,7 +49,7 @@ export function HeroProductPreview() {
 
     const interval = window.setInterval(() => {
       setActiveStep((step) => (step + 1) % steps.length);
-    }, 1600);
+    }, 2400);
 
     return () => window.clearInterval(interval);
   }, [shouldReduceMotion]);
@@ -60,7 +60,7 @@ export function HeroProductPreview() {
     <motion.div
       role="region"
       aria-label="Preview of your organized saved resources"
-      className="relative mx-auto mt-16 w-full max-w-3xl text-left sm:mt-20"
+      className="relative mx-auto mt-14 w-full max-w-4xl text-left sm:mt-16"
       initial={shouldReduceMotion === true ? false : { opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{
@@ -73,9 +73,9 @@ export function HeroProductPreview() {
         aria-hidden="true"
         className="absolute -inset-3 -z-10 rounded-[28px] bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--primary)_14%,transparent),transparent_72%)] blur-2xl sm:-inset-6"
       />
-      <div className="overflow-hidden rounded-2xl border border-border/80 bg-surface-elevated shadow-xl ring-1 ring-text/[0.03]">
+      <div className="overflow-hidden rounded-[24px] border border-white/80 bg-surface-elevated shadow-[0_24px_80px_-32px_rgba(0,0,0,0.24)] ring-1 ring-text/[0.04] dark:border-border">
         <div
-          className="flex h-14 items-center gap-3 border-b border-border px-4 sm:px-6"
+          className="flex h-14 items-center gap-3 border-b border-border/70 bg-surface-elevated/80 px-4 sm:px-6"
         >
           <Search
             aria-hidden="true"
@@ -107,7 +107,7 @@ export function HeroProductPreview() {
                 return (
                   <motion.article
                     key={resource.domain}
-                    className="group overflow-hidden rounded-xl border border-border/80 bg-surface transition-shadow hover:shadow-md"
+                    className="group overflow-hidden rounded-2xl border border-border/60 bg-surface transition-[border-color,transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:border-border hover:shadow-md"
                     initial={shouldReduceMotion === true ? false : { opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
@@ -147,7 +147,7 @@ export function HeroProductPreview() {
 
           <section
             aria-labelledby="ai-discovered-title"
-            className="rounded-xl border border-primary/15 bg-primary/[0.035] p-4 sm:p-5"
+            className="rounded-2xl border border-border/60 bg-background/75 p-4 sm:p-5"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">

@@ -44,7 +44,7 @@ const linkGroups: { title: string; links: FooterLink[] }[] = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-surface-elevated px-5 pb-6 pt-12 sm:px-8 sm:pb-8 sm:pt-16">
+    <footer className="border-t border-border/60 bg-surface-elevated px-5 pb-6 pt-12 sm:px-8 sm:pb-8 sm:pt-16">
       <div className="mx-auto max-w-container-xl">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_repeat(4,minmax(0,1fr))] lg:gap-8">
           <div>
@@ -54,14 +54,14 @@ export function Footer() {
             >
               ThinkPin
             </Link>
-            <p className="mt-2 text-sm text-text-muted">
+            <p className="mt-2 max-w-[15rem] text-sm leading-6 text-text-muted">
               Your Internet, remembered.
             </p>
           </div>
 
           {linkGroups.map((group) => (
             <nav key={group.title} aria-label={group.title}>
-              <h2 className="text-xs font-semibold uppercase tracking-[0.12em] text-text">
+              <h2 className="text-xs font-semibold tracking-[-0.01em] text-text">
                 {group.title}
               </h2>
               <ul className="mt-4 space-y-3">
@@ -90,7 +90,7 @@ export function Footer() {
           ))}
         </div>
 
-        <div className="mt-12 flex flex-col gap-4 border-t border-border pt-5 sm:mt-14 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
+        <div className="mt-12 flex flex-col gap-4 border-t border-border/60 pt-5 sm:mt-14 sm:flex-row sm:items-center sm:justify-between sm:pt-6">
           <p className="text-xs text-text-muted">
             © 2026 ThinkPin. All rights reserved.
           </p>

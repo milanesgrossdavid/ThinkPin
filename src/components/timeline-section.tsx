@@ -7,7 +7,7 @@ export function TimelineSection() {
   return (
     <section
       aria-labelledby="timeline-title"
-      className="overflow-hidden bg-background px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="overflow-hidden bg-surface px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
         <div className="mx-auto max-w-2xl text-center">
@@ -28,7 +28,7 @@ export function TimelineSection() {
         <div
           role="img"
           aria-label="Resources saved across 2024, 2025, and 2026 connect into one Internet memory"
-          className="relative mx-auto mt-10 max-w-3xl rounded-2xl border border-border/80 bg-surface-elevated px-5 py-7 shadow-sm sm:mt-14 sm:px-10 sm:py-9"
+          className="relative mx-auto mt-10 max-w-3xl rounded-[28px] border border-border/50 bg-surface-elevated px-5 py-7 shadow-[0_20px_64px_-40px_rgba(0,0,0,0.2)] sm:mt-14 sm:px-10 sm:py-9"
         >
           <div className="relative mx-auto max-w-xl">
             <svg
@@ -96,7 +96,7 @@ export function TimelineSection() {
             </ol>
 
             <div className="relative flex justify-end pr-2 pt-1 sm:pr-4">
-              <div className="flex min-w-40 items-center gap-3 rounded-xl border border-primary/20 bg-primary/[0.045] px-4 py-3 shadow-sm sm:min-w-52 sm:px-5 sm:py-4">
+              <div className="flex min-w-40 items-center gap-3 rounded-2xl bg-background px-4 py-3 sm:min-w-52 sm:px-5 sm:py-4">
                 <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                   <Link2 aria-hidden="true" className="size-4" />
                 </span>

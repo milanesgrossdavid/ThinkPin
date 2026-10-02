@@ -11,7 +11,7 @@ export function IntelligenceSection() {
     <section
       aria-labelledby="intelligence-title"
       aria-describedby="intelligence-description"
-      className="overflow-hidden bg-surface px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="overflow-hidden bg-background px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
         <div className="mx-auto max-w-3xl text-center">
@@ -69,7 +69,7 @@ export function IntelligenceSection() {
             ))}
           </svg>
 
-          <article className="absolute left-1/2 top-5 w-[min(86%,400px)] -translate-x-1/2 rounded-2xl border border-border bg-surface-elevated p-5 shadow-lg ring-1 ring-text/[0.03] sm:top-7 sm:p-6">
+          <article className="absolute left-1/2 top-5 w-[min(86%,400px)] -translate-x-1/2 rounded-[24px] border border-border/50 bg-surface-elevated p-5 shadow-[0_20px_60px_-32px_rgba(0,0,0,0.28)] ring-1 ring-text/[0.03] sm:top-7 sm:p-6">
             <div className="flex items-center justify-between gap-3">
               <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-text-muted">
                 <span className="size-1.5 rounded-full bg-success" />
@@ -89,7 +89,7 @@ export function IntelligenceSection() {
               {["#nextjs", "#supabase", "#authentication"].map((topic) => (
                 <li
                   key={topic}
-                  className="rounded-full border border-primary/15 bg-primary/[0.06] px-2.5 py-1 text-[11px] font-medium text-primary"
+                  className="rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary"
                 >
                   {topic}
                 </li>
@@ -104,7 +104,7 @@ export function IntelligenceSection() {
               return (
                 <li
                   key={resource.name}
-                  className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-border bg-surface-elevated px-1 py-2 shadow-sm sm:min-h-[88px] sm:flex-row sm:gap-3 sm:px-4 sm:py-3"
+                  className="flex min-h-[76px] min-w-0 flex-col items-center justify-center gap-1 rounded-2xl border border-border/50 bg-surface-elevated px-1 py-2 shadow-sm sm:min-h-[88px] sm:flex-row sm:gap-3 sm:px-4 sm:py-3"
                 >
                   <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-background text-text-muted sm:size-9">
                     <Icon className="size-4 sm:size-[18px]" />

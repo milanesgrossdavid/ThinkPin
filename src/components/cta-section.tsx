@@ -5,14 +5,14 @@ export function CTASection() {
     <section
       id="get-started"
       aria-labelledby="cta-title"
-      className="relative isolate overflow-hidden bg-surface px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="relative isolate overflow-hidden bg-background px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--primary)_13%,transparent),transparent_65%)]"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--primary)_8%,transparent),transparent_65%)]"
       />
       <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-        <span className="flex size-11 items-center justify-center rounded-2xl border border-primary/15 bg-primary/[0.06] text-primary">
+        <span className="flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Sparkles aria-hidden="true" className="size-5" />
         </span>
         <h2
@@ -27,7 +27,7 @@ export function CTASection() {
         </p>
         <a
           href="#get-started"
-          className="mt-8 inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-[background-color,transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:bg-primary/90 hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:mt-10 sm:text-base"
+          className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-[background-color,transform] active:scale-[0.97] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:mt-10 sm:text-base"
         >
           Start building your memory
           <ArrowRight aria-hidden="true" className="size-4" />

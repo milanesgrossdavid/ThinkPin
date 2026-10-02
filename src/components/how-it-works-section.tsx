@@ -30,7 +30,7 @@ export function HowItWorksSection() {
     <section
       id="how-it-works"
       aria-labelledby="how-it-works-title"
-      className="bg-background px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="bg-surface-elevated px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
         <div className="mx-auto max-w-2xl text-center">
@@ -49,11 +49,11 @@ export function HowItWorksSection() {
           </p>
         </div>
 
-        <ol className="mt-12 grid gap-3 sm:mt-16 sm:grid-cols-2 lg:grid-cols-4 lg:gap-4">
+        <ol className="mt-12 grid gap-px overflow-hidden rounded-[24px] border border-border/50 bg-border/50 sm:mt-16 sm:grid-cols-2 lg:grid-cols-4">
           {steps.map((step) => (
             <li
               key={step.number}
-              className="group relative flex min-h-64 flex-col rounded-xl border border-border/80 bg-surface-elevated p-5 transition-[border-color,box-shadow,transform] duration-200 hover:-translate-y-1 hover:border-primary/30 hover:shadow-md sm:p-6"
+              className="group relative flex min-h-64 flex-col bg-surface-elevated p-5 transition-colors duration-200 hover:bg-surface sm:p-6"
             >
               <div className="flex items-center justify-between">
                 <span className="font-mono text-xs font-medium tracking-wide text-primary">
@@ -77,7 +77,7 @@ export function HowItWorksSection() {
                 {step.topics.map((topic) => (
                   <li
                     key={topic}
-                    className="rounded-full border border-border/80 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-text-muted"
+                    className="rounded-full bg-background px-2.5 py-1 text-[11px] font-medium text-text-muted"
                   >
                     {topic}
                   </li>

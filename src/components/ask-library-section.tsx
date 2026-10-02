@@ -19,7 +19,7 @@ export function AskLibrarySection() {
   return (
     <section
       aria-labelledby="ask-library-title"
-      className="bg-background px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="bg-surface px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
         <div className="mx-auto max-w-3xl text-center">
@@ -37,14 +37,14 @@ export function AskLibrarySection() {
         <div
           role="region"
           aria-label="Example answer based on your saved library"
-          className="mx-auto mt-10 max-w-3xl overflow-hidden rounded-2xl border border-border/80 bg-surface-elevated shadow-xl ring-1 ring-text/[0.03] sm:mt-14"
+          className="mx-auto mt-10 max-w-3xl overflow-hidden rounded-[28px] border border-border/50 bg-surface-elevated shadow-[0_24px_80px_-40px_rgba(0,0,0,0.26)] ring-1 ring-text/[0.03] sm:mt-14"
         >
           <div className="border-b border-border p-4 sm:p-6">
             <div className="flex items-center gap-2 text-xs font-medium text-text-muted">
               <BookOpen aria-hidden="true" className="size-4 text-primary" />
               Your library
             </div>
-            <div className="mt-4 rounded-xl border border-border bg-background/70 px-4 py-4 sm:px-5 sm:py-5">
+            <div className="mt-4 rounded-2xl border border-border/50 bg-background/70 px-4 py-4 sm:px-5 sm:py-5">
               <p className="text-sm leading-6 text-text sm:text-base sm:leading-7">
                 What tools did I save for building AI applications?
               </p>
@@ -58,7 +58,7 @@ export function AskLibrarySection() {
               </span>
             </div>
 
-            <div className="rounded-xl border border-primary/15 bg-primary/[0.035] p-4 sm:p-5">
+            <div className="rounded-2xl border border-border/50 bg-surface p-4 sm:p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
                   <Sparkles aria-hidden="true" className="size-4" />
@@ -85,7 +85,7 @@ export function AskLibrarySection() {
 
                     return (
                       <li key={source.name}>
-                        <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border/70 bg-surface-elevated px-3 py-2.5">
+                        <div className="flex min-w-0 items-center gap-3 rounded-xl bg-surface-elevated px-3 py-2.5">
                           <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-background text-text-muted">
                             <Icon aria-hidden="true" className="size-4" />
                           </span>

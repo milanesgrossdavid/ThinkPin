@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "apple-design": {
+      "source": "emilkowalski/skills",
+      "sourceType": "github",
+      "skillPath": "skills/apple-design/SKILL.md",
+      "computedHash": "0190417d092a0df447b000154e39733ea6d97efad6d3bec8a6ce3845aeb88914"
+    },
+    "scandinavian-design": {
+      "source": "ericzakariasson/scandinavian-design",
+      "sourceType": "github",
+      "skillPath": "skills/scandinavian-design/SKILL.md",
+      "computedHash": "b1856501e2bbdee6b3958799510c2474ea5b597a88300850df74ce200bc50b01"
+    },
+    "web-design-guidelines": {
+      "source": "ehmo/platform-design-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web/SKILL.md",
+      "computedHash": "fc94f93418a39d2c224b450de96799f9481d779851c404c355d5d5d61302b3c9"
+    }
+  }
+}

@@ -12,7 +12,7 @@ export function AnnouncementBar({
   return (
     <aside
       aria-label="Announcement"
-      className="flex min-h-9 flex-wrap items-center justify-center gap-x-3 gap-y-1 bg-primary px-4 py-2 text-center text-[13px] leading-5 text-primary-foreground"
+      className="flex min-h-9 flex-wrap items-center justify-center gap-x-2 gap-y-1 bg-[#1d1d1f] px-4 py-1.5 text-center text-xs leading-5 text-white dark:bg-white dark:text-[#1d1d1f]"
     >
       <span>
         <span aria-hidden="true" className="mr-2">
@@ -21,7 +21,7 @@ export function AnnouncementBar({
         {message}
       </span>
       <a
-        className="shrink-0 font-medium underline decoration-primary-foreground/50 underline-offset-2 transition-opacity hover:opacity-80 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-foreground"
+        className="shrink-0 font-medium text-white/80 transition-colors hover:text-white focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white dark:text-[#1d1d1f]/70 dark:hover:text-[#1d1d1f] dark:focus-visible:outline-[#1d1d1f]"
         href={href}
       >
         {actionLabel}

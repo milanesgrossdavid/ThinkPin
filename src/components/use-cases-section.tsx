@@ -74,7 +74,7 @@ export function UseCasesSection() {
   return (
     <section
       aria-labelledby="use-cases-title"
-      className="bg-background px-5 py-20 sm:px-8 sm:py-28 lg:py-32"
+      className="bg-surface px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
         <div className="mx-auto max-w-2xl text-center">
@@ -93,7 +93,7 @@ export function UseCasesSection() {
           <div
             role="tablist"
             aria-label="Choose how you use the Internet"
-            className="flex gap-1 overflow-x-auto rounded-xl border border-border/80 bg-surface p-1.5 sm:justify-center"
+            className="grid grid-cols-2 gap-1 rounded-2xl bg-background p-1 sm:flex sm:flex-wrap sm:justify-center sm:rounded-full"
           >
             {useCases.map((useCase, index) => (
               <button
@@ -109,9 +109,9 @@ export function UseCasesSection() {
                 tabIndex={activeCase === index ? 0 : -1}
                 onClick={() => setActiveCase(index)}
                 onKeyDown={handleTabKeyDown}
-                className={`shrink-0 rounded-lg px-3 py-2.5 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4 sm:text-sm ${
+                className={`w-full rounded-full px-2 py-2.5 text-[11px] font-medium transition-[background-color,color,box-shadow] duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto sm:px-5 sm:text-sm ${
                   activeCase === index
-                    ? "bg-surface-elevated text-text shadow-sm"
+                    ? "bg-surface-elevated text-text shadow-[0_1px_4px_rgba(0,0,0,0.12)]"
                     : "text-text-muted hover:text-text"
                 }`}
               >
@@ -126,11 +126,11 @@ export function UseCasesSection() {
             role="tabpanel"
             aria-labelledby={`use-case-tab-${selected.id}`}
             tabIndex={0}
-            className="mt-5 rounded-2xl border border-border/80 bg-surface-elevated p-5 shadow-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:mt-6 sm:p-8 lg:p-10"
+            className="mt-5 rounded-[28px] border border-border/50 bg-surface-elevated p-5 shadow-[0_20px_64px_-40px_rgba(0,0,0,0.2)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:mt-6 sm:p-8 lg:p-10"
           >
             <div className="grid gap-8 md:grid-cols-[0.8fr_1.2fr] md:gap-12">
               <div>
-                <span className="inline-flex size-9 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <span className="inline-flex size-9 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <span className="font-mono text-sm font-semibold">
                     0{activeCase + 1}
                   </span>
@@ -172,7 +172,7 @@ export function UseCasesSection() {
                     {selected.next.map((step, index) => (
                       <li
                         key={step}
-                        className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-background/70 px-3 py-1.5 text-xs font-medium text-text"
+                        className="inline-flex items-center gap-2 rounded-full bg-background px-3 py-1.5 text-xs font-medium text-text"
                       >
                         {step}
                         {index < selected.next.length - 1 && (
