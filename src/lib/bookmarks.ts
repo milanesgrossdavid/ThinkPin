@@ -8,6 +8,21 @@ export type BookmarkIntent =
   | "Project"
   | "Inspiration";
 
+export type BookmarkDetailActivity = {
+  action: string;
+  at: string;
+};
+
+export type BookmarkDetailState = {
+  favorite?: boolean;
+  archived?: boolean;
+  notes?: string;
+  intent?: BookmarkIntent;
+  collection?: string;
+  tags?: string[];
+  activity?: BookmarkDetailActivity[];
+};
+
 export type SavedBookmark = {
   id: string;
   url: string;
@@ -18,6 +33,8 @@ export type SavedBookmark = {
   collection: string;
   tags: string[];
   intent?: BookmarkIntent;
+  favorite?: boolean;
+  archived?: boolean;
 };
 
 export type BookmarkSuggestions = {
@@ -35,6 +52,166 @@ const bookmarkIntents: BookmarkIntent[] = [
   "Inspiration",
 ];
 const bookmarksChangedEvent = "thinkpin:bookmarks-change";
+const bookmarkDetailChangedEvent = "thinkpin:bookmark-detail-change";
+
+function bookmarkDetailStorageKey(bookmarkId: string) {
+  return `${bookmarksStorageKey}:detail:${bookmarkId}`;
+}
+
+export function subscribeToBookmarkDetail(
+  bookmarkId: string,
+  onChange: () => void,
+) {
+  function handleStorage(event: StorageEvent) {
+    if (
+      event.key === bookmarkDetailStorageKey(bookmarkId) ||
+      event.key === null
+    ) {
+      onChange();
+    }
+  }
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(bookmarkDetailChangedEvent, onChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(bookmarkDetailChangedEvent, onChange);
+  };
+}
+
+export function subscribeToBookmarkDetails(onChange: () => void) {
+  function handleStorage(event: StorageEvent) {
+    if (
+      event.key?.startsWith(`${bookmarksStorageKey}:detail:`) ||
+      event.key === null
+    ) {
+      onChange();
+    }
+  }
+
+  window.addEventListener("storage", handleStorage);
+  window.addEventListener(bookmarkDetailChangedEvent, onChange);
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+    window.removeEventListener(bookmarkDetailChangedEvent, onChange);
+  };
+}
+
+export function getBookmarkDetailsSnapshot() {
+  try {
+    const prefix = `${bookmarksStorageKey}:detail:`;
+    const details: Array<[string, string]> = [];
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (key?.startsWith(prefix)) {
+        const value = window.localStorage.getItem(key);
+        if (value !== null) {
+          details.push([key.slice(prefix.length), value]);
+        }
+      }
+    }
+    return JSON.stringify(details);
+  } catch {
+    return null;
+  }
+}
+
+export function getServerBookmarkDetailsSnapshot() {
+  return "[]";
+}
+
+export function getBookmarkDetailSnapshot(bookmarkId: string) {
+  try {
+    return window.localStorage.getItem(bookmarkDetailStorageKey(bookmarkId)) ?? "";
+  } catch {
+    return null;
+  }
+}
+
+export function getServerBookmarkDetailSnapshot() {
+  return "";
+}
+
+export function readBookmarkDetailState(snapshot: string | null): BookmarkDetailState {
+  if (!snapshot) {
+    return {};
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(snapshot);
+    if (
+      typeof parsed !== "object" ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
+      throw new Error("Saved bookmark details are invalid.");
+    }
+
+    const value = parsed as Record<string, unknown>;
+    const state: BookmarkDetailState = {};
+    if (typeof value.favorite === "boolean") state.favorite = value.favorite;
+    if (typeof value.archived === "boolean") state.archived = value.archived;
+    if (typeof value.notes === "string") state.notes = value.notes;
+    if (isBookmarkIntent(value.intent)) state.intent = value.intent;
+    if (typeof value.collection === "string") {
+      state.collection = value.collection;
+    }
+    if (Array.isArray(value.tags)) {
+      state.tags = value.tags.filter(
+        (tag): tag is string => typeof tag === "string",
+      );
+    }
+    if (Array.isArray(value.activity)) {
+      state.activity = value.activity.filter(
+        (entry): entry is BookmarkDetailActivity =>
+          typeof entry === "object" &&
+          entry !== null &&
+          "action" in entry &&
+          typeof entry.action === "string" &&
+          "at" in entry &&
+          typeof entry.at === "string",
+      );
+    }
+    return state;
+  } catch {
+    throw new Error("Saved bookmark details are invalid.");
+  }
+}
+
+export function updateBookmarkDetailState(
+  bookmarkId: string,
+  updates: BookmarkDetailState,
+) {
+  const key = bookmarkDetailStorageKey(bookmarkId);
+  const current = readBookmarkDetailState(
+    window.localStorage.getItem(key),
+  );
+  const next = { ...current, ...updates };
+  const bookmarks = readBookmarks();
+  const bookmarkIndex = bookmarks.findIndex(
+    (bookmark) => bookmark.id === bookmarkId,
+  );
+
+  window.localStorage.setItem(key, JSON.stringify(next));
+  if (bookmarkIndex !== -1) {
+    bookmarks[bookmarkIndex] = {
+      ...bookmarks[bookmarkIndex],
+      ...(updates.favorite !== undefined
+        ? { favorite: updates.favorite }
+        : {}),
+      ...(updates.archived !== undefined
+        ? { archived: updates.archived }
+        : {}),
+      ...(updates.collection !== undefined
+        ? { collection: updates.collection }
+        : {}),
+      ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
+      ...(updates.intent !== undefined ? { intent: updates.intent } : {}),
+    };
+    writeBookmarks(bookmarks);
+  }
+  window.dispatchEvent(new Event(bookmarkDetailChangedEvent));
+}
 
 export function subscribeToBookmarks(onChange: () => void) {
   function handleStorage(event: StorageEvent) {
@@ -202,6 +379,12 @@ export function loadSavedBookmarks(
       tags: Array.isArray(bookmark.tags)
         ? bookmark.tags.filter((tag): tag is string => typeof tag === "string")
         : [],
+      ...(typeof bookmark.favorite === "boolean"
+        ? { favorite: bookmark.favorite }
+        : {}),
+      ...(typeof bookmark.archived === "boolean"
+        ? { archived: bookmark.archived }
+        : {}),
       ...(isBookmarkIntent(bookmark.intent)
         ? { intent: bookmark.intent }
         : {}),

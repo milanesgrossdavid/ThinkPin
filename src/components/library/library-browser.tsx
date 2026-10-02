@@ -7,6 +7,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import Link from "next/link";
 import {
   Globe2,
   LayoutGrid,
@@ -21,9 +22,14 @@ import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks
 import type { BookmarkView } from "../bookmarks/types";
 import {
   getBookmarksSnapshot,
+  getBookmarkDetailsSnapshot,
+  getServerBookmarkDetailsSnapshot,
   getServerBookmarksSnapshot,
   loadSavedBookmarks,
+  subscribeToBookmarkDetails,
   subscribeToBookmarks,
+  readBookmarkDetailState,
+  type BookmarkDetailState,
 } from "../../lib/bookmarks";
 import {
   isLibraryFilter,
@@ -71,6 +77,15 @@ const ignoredSearchTerms = new Set([
   "saved",
 ]);
 
+function isBookmarkDetailEntry(value: unknown): value is [string, string] {
+  return (
+    Array.isArray(value) &&
+    value.length === 2 &&
+    typeof value[0] === "string" &&
+    typeof value[1] === "string"
+  );
+}
+
 function matchesDate(date: string, filter: DateFilter) {
   if (filter === "any-time") {
     return true;
@@ -100,14 +115,23 @@ function matchesDate(date: string, filter: DateFilter) {
 
 export function LibraryBrowser({
   initialFilter,
+  initialTag,
+  initialCollection,
 }: {
   initialFilter: LibraryFilter;
+  initialTag: string;
+  initialCollection: string;
 }) {
   const searchRef = useRef<HTMLInputElement>(null);
   const bookmarksSnapshot = useSyncExternalStore(
     subscribeToBookmarks,
     getBookmarksSnapshot,
     getServerBookmarksSnapshot,
+  );
+  const detailsSnapshot = useSyncExternalStore(
+    subscribeToBookmarkDetails,
+    getBookmarkDetailsSnapshot,
+    getServerBookmarkDetailsSnapshot,
   );
   const [filter, setFilter] = useState<LibraryFilter>(initialFilter);
   const [query, setQuery] = useState("");
@@ -154,7 +178,7 @@ export function LibraryBrowser({
             icon: Globe2,
             artwork: "from-primary/15 via-sky-500/10 to-transparent",
             contentType,
-            favorite: false,
+            favorite: bookmark.favorite ?? false,
             unread: true,
             savedDate: bookmark.savedAt.slice(0, 10),
             searchTerms: [
@@ -174,6 +198,37 @@ export function LibraryBrowser({
       };
     }
   }, [bookmarksSnapshot]);
+  const { detailStates, detailStorageMessage } = useMemo(() => {
+    if (detailsSnapshot === null) {
+      return {
+        detailStates: new Map<string, Record<string, unknown>>(),
+        detailStorageMessage:
+          "We couldn't read bookmark details from this browser.",
+      };
+    }
+
+    try {
+      const parsed: unknown = JSON.parse(detailsSnapshot);
+      if (!Array.isArray(parsed) || !parsed.every(isBookmarkDetailEntry)) {
+        throw new Error("Saved bookmark details are invalid.");
+      }
+      return {
+        detailStates: new Map<string, BookmarkDetailState>(
+          parsed.map(([id, value]) => [
+            id,
+            readBookmarkDetailState(value),
+          ]),
+        ),
+        detailStorageMessage: "",
+      };
+    } catch {
+      return {
+        detailStates: new Map<string, Record<string, unknown>>(),
+        detailStorageMessage:
+          "Some saved bookmark details are invalid. They may not appear correctly.",
+      };
+    }
+  }, [detailsSnapshot]);
 
   useEffect(() => {
     function handlePopState() {
@@ -220,7 +275,34 @@ export function LibraryBrowser({
       .filter((term) => term.length > 1 && !ignoredSearchTerms.has(term))
       .map((term) => (term.endsWith("s") ? term.slice(0, -1) : term));
 
-    return [...savedBookmarks, ...mockBookmarks].filter((bookmark) => {
+    return [...savedBookmarks, ...mockBookmarks]
+      .map((bookmark) => {
+        const detailState = detailStates.get(bookmark.id);
+        return {
+          ...bookmark,
+          ...(typeof detailState?.favorite === "boolean"
+            ? { favorite: detailState.favorite }
+            : {}),
+          ...(typeof detailState?.archived === "boolean"
+            ? { archived: detailState.archived }
+            : {}),
+          ...(typeof detailState?.collection === "string"
+            ? { topic: detailState.collection }
+            : {}),
+          ...(Array.isArray(detailState?.tags)
+            ? {
+                tags: detailState.tags.filter(
+                  (tag): tag is string => typeof tag === "string",
+                ),
+              }
+            : {}),
+        };
+      })
+      .filter((bookmark) => {
+      if (bookmark.archived) {
+        return false;
+      }
+
       const matchesTab =
         filter === "all" ||
         (filter === "favorites" &&
@@ -250,17 +332,30 @@ export function LibraryBrowser({
       const matchesQuery = terms.every((term) => searchable.includes(term));
       const matchesTopics =
         selectedTopics.length === 0 || selectedTopics.includes(bookmark.topic);
+      const matchesTag =
+        !initialTag ||
+        (bookmark.tags ?? []).some(
+          (tag) => tag.toLowerCase() === initialTag.toLowerCase(),
+        );
+      const matchesCollection =
+        !initialCollection ||
+        bookmark.topic.toLowerCase() === initialCollection.toLowerCase();
       return (
         matchesTab &&
         matchesQuery &&
         matchesTopics &&
+        matchesTag &&
+        matchesCollection &&
         matchesDate(bookmark.savedDate, dateFilter)
       );
-    });
+      });
   }, [
     dateFilter,
+    detailStates,
     favoriteOverrides,
     filter,
+    initialCollection,
+    initialTag,
     query,
     savedBookmarks,
     selectedTopics,
@@ -304,9 +399,29 @@ export function LibraryBrowser({
         <p className="mt-2 text-xs text-text-muted">
           Search titles, topics, domains, or describe what you remember.
         </p>
-        {storageMessage && (
+        {(initialTag || initialCollection) && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            {initialTag && (
+              <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+                Tag: #{initialTag}
+              </span>
+            )}
+            {initialCollection && (
+              <span className="rounded-full bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary">
+                Collection: {initialCollection}
+              </span>
+            )}
+            <Link
+              href="/library"
+              className="text-xs font-medium text-text-muted hover:text-primary"
+            >
+              Clear filters
+            </Link>
+          </div>
+        )}
+        {(storageMessage || detailStorageMessage) && (
           <p className="mt-3 text-xs text-error" role="alert">
-            {storageMessage}
+            {storageMessage || detailStorageMessage}
           </p>
         )}
 

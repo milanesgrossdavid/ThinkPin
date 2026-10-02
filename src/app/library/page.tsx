@@ -16,7 +16,11 @@ export const metadata: Metadata = {
 export default async function LibraryPage({
   searchParams,
 }: PageProps<"/library">) {
-  const { filter: requestedFilter } = await searchParams;
+  const {
+    filter: requestedFilter,
+    tag: requestedTag,
+    collection: requestedCollection,
+  } = await searchParams;
   const initialFilter: LibraryFilter =
     typeof requestedFilter === "string" && isLibraryFilter(requestedFilter)
       ? requestedFilter
@@ -25,7 +29,13 @@ export default async function LibraryPage({
   return (
     <main className="min-h-svh bg-background">
       <LibraryHeader itemCount={libraryItemCount} />
-      <LibraryBrowser initialFilter={initialFilter} />
+      <LibraryBrowser
+        initialFilter={initialFilter}
+        initialTag={typeof requestedTag === "string" ? requestedTag : ""}
+        initialCollection={
+          typeof requestedCollection === "string" ? requestedCollection : ""
+        }
+      />
     </main>
   );
 }
