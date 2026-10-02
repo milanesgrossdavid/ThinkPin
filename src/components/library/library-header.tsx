@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { Folder, Plus } from "lucide-react";
 
 type LibraryHeaderProps = {
   itemCount: number;
@@ -24,13 +24,22 @@ export function LibraryHeader({ itemCount }: LibraryHeaderProps) {
           </p>
         </div>
 
-        <Link
-          href="/save"
-          className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-5"
-        >
-          <Plus aria-hidden="true" className="size-4 sm:size-5" />
-          <span>Save</span>
-        </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/collections"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border/70 bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
+          >
+            <Folder aria-hidden="true" className="size-4" />
+            <span>Collections</span>
+          </Link>
+          <Link
+            href="/save"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-5"
+          >
+            <Plus aria-hidden="true" className="size-4 sm:size-5" />
+            <span>Save</span>
+          </Link>
+        </div>
       </div>
     </header>
   );

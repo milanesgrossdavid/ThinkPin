@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
+import { CommandMenu } from "../components/search/command-menu";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -25,7 +26,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistMono.variable} h-full antialiased`}
       data-scroll-behavior="smooth"
     >
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        {children}
+        <CommandMenu />
+      </body>
     </html>
   );
 }

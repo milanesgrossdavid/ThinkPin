@@ -1,4 +1,5 @@
 import { Search } from "lucide-react";
+import Link from "next/link";
 
 export function DashboardHeader() {
   return (
@@ -28,18 +29,22 @@ export function DashboardHeader() {
           </div>
 
           <div className="flex w-full items-center gap-2 lg:w-auto lg:gap-3">
-            <label className="relative min-w-0 flex-1 lg:w-64 lg:flex-none">
-              <span className="sr-only">Search your memory</span>
+            <Link
+              href="/search"
+              aria-label="Search your memory. Open command menu with Command K."
+              className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-border/70 bg-surface-elevated pl-10 pr-3 text-xs text-text-muted outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 sm:h-11 sm:pr-3 sm:text-sm lg:w-64 lg:flex-none"
+            >
               <Search
                 aria-hidden="true"
-                className="pointer-events-none absolute left-3.5 top-1/2 size-[18px] -translate-y-1/2 text-text-muted"
+                className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-text-muted"
               />
-              <input
-                type="search"
-                placeholder="Search your memory..."
-                className="h-10 w-full rounded-full border border-border/70 bg-surface-elevated pl-10 pr-3 text-xs text-text outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/80 focus:border-primary focus:ring-4 focus:ring-primary/10 sm:h-11 sm:pr-4 sm:text-sm"
-              />
-            </label>
+              <span className="min-w-0 flex-1 truncate">
+                Search your memory...
+              </span>
+              <kbd className="hidden shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-text-muted sm:inline-flex">
+                ⌘ K
+              </kbd>
+            </Link>
 
             <span
               role="img"

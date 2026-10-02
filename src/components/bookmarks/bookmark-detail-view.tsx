@@ -29,6 +29,12 @@ import {
   type BookmarkDetailActivity,
   type BookmarkDetailState,
 } from "../../lib/bookmarks";
+import {
+  getCollectionsSnapshot,
+  getServerCollectionsSnapshot,
+  loadCollections,
+  subscribeToCollections,
+} from "../../lib/collections";
 
 type BookmarkDetailViewProps = {
   bookmark: Bookmark;
@@ -152,6 +158,11 @@ export function BookmarkDetailView({
     getSnapshot,
     getServerBookmarkDetailSnapshot,
   );
+  const collectionsSnapshot = useSyncExternalStore(
+    subscribeToCollections,
+    getCollectionsSnapshot,
+    getServerCollectionsSnapshot,
+  );
   const detailState = useMemo(
     () => {
       try {
@@ -162,6 +173,22 @@ export function BookmarkDetailView({
     },
     [detailSnapshot],
   );
+  const availableCollections = useMemo(() => {
+    try {
+      return [
+        ...new Set([
+          "Development",
+          "AI",
+          "Design",
+          "Learning",
+          "Read later",
+          ...loadCollections(collectionsSnapshot).map((item) => item.name),
+        ]),
+      ];
+    } catch {
+      return ["Development", "AI", "Design", "Learning", "Read later"];
+    }
+  }, [collectionsSnapshot]);
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
   const [tagDraft, setTagDraft] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
@@ -511,7 +538,7 @@ export function BookmarkDetailView({
                 aria-label="Move to another collection"
                 className="mt-2 flex flex-wrap gap-2"
               >
-                {["Development", "AI", "Design", "Learning", "Read later"]
+                {availableCollections
                   .filter((item) => item !== activeCollection)
                   .map((item) => (
                     <button

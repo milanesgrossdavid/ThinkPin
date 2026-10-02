@@ -3,7 +3,6 @@
 import {
   useEffect,
   useMemo,
-  useRef,
   useState,
   useSyncExternalStore,
 } from "react";
@@ -122,7 +121,6 @@ export function LibraryBrowser({
   initialTag: string;
   initialCollection: string;
 }) {
-  const searchRef = useRef<HTMLInputElement>(null);
   const bookmarksSnapshot = useSyncExternalStore(
     subscribeToBookmarks,
     getBookmarksSnapshot,
@@ -242,18 +240,9 @@ export function LibraryBrowser({
       );
     }
 
-    function handleShortcut(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        searchRef.current?.focus();
-      }
-    }
-
     window.addEventListener("popstate", handlePopState);
-    window.addEventListener("keydown", handleShortcut);
     return () => {
       window.removeEventListener("popstate", handlePopState);
-      window.removeEventListener("keydown", handleShortcut);
     };
   }, []);
 
@@ -374,7 +363,6 @@ export function LibraryBrowser({
             className="pointer-events-none absolute left-4 top-1/2 size-5 -translate-y-1/2 text-text-muted"
           />
           <input
-            ref={searchRef}
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
