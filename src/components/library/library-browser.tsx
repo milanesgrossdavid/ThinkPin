@@ -609,7 +609,7 @@ export function LibraryBrowser({
               </span>
             )}
             <Link
-              href="/library"
+              href="/app/bookmarks"
               className="text-xs font-medium text-text-muted hover:text-primary"
             >
               Clear filters

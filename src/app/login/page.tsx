@@ -2,13 +2,29 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LoginForm } from "../../components/login-form";
 import { AuthLogo } from "../../components/auth-logo";
+import { safeNextPath } from "../../lib/auth/safe-next-path";
+import { createClient } from "../../lib/supabase/server";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = {
   title: "Log in | ThinkPin",
   description: "Log in to your ThinkPin account.",
 };
 
-export default function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string; next?: string }>;
+}) {
+  const { error, next } = await searchParams;
+  const nextPath = safeNextPath(next ?? null);
+  const supabase = await createClient();
+  const { data } = await supabase.auth.getClaims();
+
+  if (data?.claims?.sub) {
+    redirect("/app");
+  }
+
   return (
     <main className="relative isolate flex min-h-svh flex-col overflow-hidden bg-background px-5 py-4 sm:px-8 sm:py-6">
       <div
@@ -37,7 +53,10 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <LoginForm />
+          <LoginForm
+            authError={error === "auth_callback"}
+            nextPath={nextPath}
+          />
         </section>
       </div>
 

@@ -2,25 +2,72 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide";
 import { MorphIcon } from "morphicons/react";
 import { AuthProviderButton } from "./auth-provider-button";
+import { createClient } from "../lib/supabase/client";
+import { ActionButton } from "./ui/ActionButton";
 
 export function SignupForm() {
+  const router = useRouter();
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [signupComplete, setSignupComplete] = useState(false);
+  const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage("Account creation is not connected yet.");
+    setError("");
+    setMessage("");
+    setIsSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const password = String(formData.get("password") ?? "");
+
+    try {
+      const supabase = createClient();
+      const emailRedirectTo = new URL(
+        "/auth/callback?next=%2Fapp",
+        window.location.origin,
+      ).toString();
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo },
+      });
+
+      if (signupError) {
+        throw signupError;
+      }
+
+      if (data.session) {
+        router.replace("/app");
+        router.refresh();
+        return;
+      }
+
+      setSignupComplete(true);
+      setMessage(
+        "Check your email for a confirmation link to finish creating your account.",
+      );
+    } catch (signupError) {
+      setError(
+        signupError instanceof Error
+          ? signupError.message
+          : "We couldn't create your account. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <>
       <AuthProviderButton
-        onUnavailable={() =>
-          setMessage("Google sign-up will be available soon.")
-        }
+        onError={setError}
       />
 
       <div className="my-5 flex items-center gap-4" aria-hidden="true">
@@ -46,6 +93,7 @@ export function SignupForm() {
             autoComplete="email"
             placeholder="you@example.com"
             required
+            disabled={isSubmitting || signupComplete}
             className="h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-text outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/70 focus:border-primary focus:ring-4 focus:ring-primary/10"
           />
         </div>
@@ -66,6 +114,7 @@ export function SignupForm() {
               minLength={8}
               placeholder="At least 8 characters"
               required
+              disabled={isSubmitting || signupComplete}
               className="h-12 w-full rounded-xl border border-border bg-background px-4 pr-12 text-sm text-text outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/70 focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
             <button
@@ -88,12 +137,27 @@ export function SignupForm() {
           </p>
         </div>
 
-        <button
+        <ActionButton
           type="submit"
-          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          status={
+            isSubmitting
+              ? "loading"
+              : signupComplete
+                ? "success"
+                : error
+                  ? "error"
+                  : "idle"
+          }
+          className="h-12 w-full active:scale-[0.985]"
         >
-          Create account
-        </button>
+          {isSubmitting
+            ? "Creating account..."
+            : signupComplete
+              ? "Check your email"
+              : error
+                ? "Try again"
+                : "Create account"}
+        </ActionButton>
       </form>
 
       <p className="mt-5 text-center text-sm text-text-muted">
@@ -108,11 +172,20 @@ export function SignupForm() {
 
       {message && (
         <p
-          className="mt-4 rounded-xl bg-background px-3 py-2 text-center text-xs leading-5 text-text-muted"
+          className="mt-4 rounded-xl border border-success/30 bg-success/10 px-3 py-3 text-center text-sm leading-5 text-text"
           role="status"
           aria-live="polite"
         >
           {message}
+        </p>
+      )}
+      {error && (
+        <p
+          className="mt-4 rounded-xl border border-error/30 bg-error/5 px-3 py-3 text-center text-sm leading-5 text-error"
+          role="alert"
+          aria-live="assertive"
+        >
+          {error}
         </p>
       )}
     </>

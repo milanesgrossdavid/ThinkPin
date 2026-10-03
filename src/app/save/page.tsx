@@ -1,15 +1,8 @@
-import type { Metadata } from "next";
-import { SmartSave } from "../../components/bookmarks/smart-save";
+import { redirect } from "next/navigation";
+import { withSearchParams } from "../../lib/auth/legacy-redirect";
 
-export const metadata: Metadata = {
-  title: "Save something | ThinkPin",
-  description: "Save a link to your personal Internet Memory.",
-};
-
-export default async function SavePage({
+export default async function LegacySavePage({
   searchParams,
 }: PageProps<"/save">) {
-  const { url } = await searchParams;
-
-  return <SmartSave initialUrl={typeof url === "string" ? url : undefined} />;
+  redirect(withSearchParams("/app/save", await searchParams));
 }

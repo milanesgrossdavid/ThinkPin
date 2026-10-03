@@ -2,25 +2,76 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide";
 import { MorphIcon } from "morphicons/react";
 import { AuthProviderButton } from "./auth-provider-button";
+import { createClient } from "../lib/supabase/client";
+import { ActionButton } from "./ui/ActionButton";
 
-export function LoginForm() {
+export function LoginForm({
+  authError = false,
+  nextPath = "/app",
+}: {
+  authError?: boolean;
+  nextPath?: string;
+}) {
+  const router = useRouter();
   const [passwordVisible, setPasswordVisible] = useState(false);
-  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loginSucceeded, setLoginSucceeded] = useState(false);
+  const [error, setError] = useState(
+    authError
+      ? "We couldn't complete sign-in. Please try again."
+      : "",
+  );
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setMessage("Account sign-in is not connected yet.");
+    setError("");
+    setLoginSucceeded(false);
+    setIsSubmitting(true);
+
+    const formData = new FormData(event.currentTarget);
+    const email = String(formData.get("email") ?? "").trim().toLowerCase();
+    const password = String(formData.get("password") ?? "");
+
+    try {
+      const supabase = createClient();
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        if (signInError.message.toLowerCase().includes("invalid login credentials")) {
+          throw new Error("Email or password is incorrect.");
+        }
+        if (signInError.message.toLowerCase().includes("email not confirmed")) {
+          throw new Error("Please confirm your email address before signing in.");
+        }
+        throw signInError;
+      }
+
+      setLoginSucceeded(true);
+      router.replace(nextPath);
+      router.refresh();
+    } catch (signInError) {
+      setError(
+        signInError instanceof Error
+          ? signInError.message
+          : "We couldn't sign you in. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
     <>
       <AuthProviderButton
-        onUnavailable={() =>
-          setMessage("Google sign-in will be available soon.")
-        }
+        onError={setError}
+        nextPath={nextPath}
       />
 
       <div className="my-5 flex items-center gap-4" aria-hidden="true">
@@ -46,28 +97,18 @@ export function LoginForm() {
             autoComplete="email"
             placeholder="you@example.com"
             required
+            disabled={isSubmitting}
             className="h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-text outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/70 focus:border-primary focus:ring-4 focus:ring-primary/10"
           />
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-3">
-            <label
-              htmlFor="password"
-              className="block text-[13px] font-medium text-text"
-            >
-              Password
-            </label>
-            <button
-              type="button"
-              onClick={() =>
-                setMessage("Password reset will be available soon.")
-              }
-              className="rounded-sm text-xs font-medium text-primary transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              Forgot password?
-            </button>
-          </div>
+          <label
+            htmlFor="password"
+            className="block text-[13px] font-medium text-text"
+          >
+            Password
+          </label>
           <div className="relative">
             <input
               id="password"
@@ -76,6 +117,7 @@ export function LoginForm() {
               autoComplete="current-password"
               placeholder="Enter your password"
               required
+              disabled={isSubmitting}
               className="h-12 w-full rounded-xl border border-border bg-background px-4 pr-12 text-sm text-text outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/70 focus:border-primary focus:ring-4 focus:ring-primary/10"
             />
             <button
@@ -95,12 +137,28 @@ export function LoginForm() {
           </div>
         </div>
 
-        <button
+        <ActionButton
           type="submit"
-          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.985] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          status={
+            isSubmitting
+              ? "loading"
+              : loginSucceeded
+                ? "success"
+                : error
+                  ? "error"
+                  : "idle"
+          }
+          disabled={isSubmitting}
+          className="h-12 w-full active:scale-[0.985]"
         >
-          Sign in
-        </button>
+          {isSubmitting
+            ? "Signing in..."
+            : loginSucceeded
+              ? "Signed in"
+              : error
+                ? "Try again"
+                : "Sign in"}
+        </ActionButton>
       </form>
 
       <p className="mt-5 text-center text-sm text-text-muted">
@@ -113,13 +171,13 @@ export function LoginForm() {
         </Link>
       </p>
 
-      {message && (
+      {error && (
         <p
-          className="mt-4 rounded-xl bg-background px-3 py-2 text-center text-xs leading-5 text-text-muted"
-          role="status"
-          aria-live="polite"
+          className="mt-4 rounded-xl border border-error/30 bg-error/5 px-3 py-3 text-center text-sm leading-5 text-error"
+          role="alert"
+          aria-live="assertive"
         >
-          {message}
+          {error}
         </p>
       )}
     </>

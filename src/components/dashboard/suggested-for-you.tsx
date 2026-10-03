@@ -8,7 +8,7 @@ const suggestions = [
     reason: "Based on your recent saves",
     icon: Sparkles,
     tone: "bg-violet-500/10 text-violet-600 dark:text-violet-300",
-    href: "/dashboard?topic=ai-tools",
+    href: "/app?topic=ai-tools",
   },
   {
     title: "Web Development",
@@ -16,7 +16,7 @@ const suggestions = [
     reason: "You frequently save content here",
     icon: Braces,
     tone: "bg-primary/10 text-primary",
-    href: "/dashboard?topic=web-development",
+    href: "/app?topic=web-development",
   },
 ];
 

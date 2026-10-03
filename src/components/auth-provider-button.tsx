@@ -1,17 +1,57 @@
 "use client";
 
+import { useState } from "react";
+import { createClient } from "../lib/supabase/client";
+
 type AuthProviderButtonProps = {
-  onUnavailable: () => void;
+  onError: (message: string) => void;
+  nextPath?: string;
 };
 
 export function AuthProviderButton({
-  onUnavailable,
+  onError,
+  nextPath = "/app",
 }: AuthProviderButtonProps) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  async function handleClick() {
+    setIsLoading(true);
+    onError("");
+
+    try {
+      const supabase = createClient();
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", nextPath);
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: callbackUrl.toString() },
+      });
+
+      if (error) {
+        throw error;
+      }
+      if (!data.url) {
+        throw new Error("Google sign-in did not return an authorization URL.");
+      }
+
+      window.location.assign(data.url);
+    } catch (authError) {
+      onError(
+        authError instanceof Error
+          ? authError.message
+          : "We couldn't start Google sign-in. Please try again.",
+      );
+      setIsLoading(false);
+    }
+  }
+
   return (
     <button
       type="button"
-      onClick={onUnavailable}
-      className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-full border border-border bg-surface-elevated px-4 text-sm font-medium text-text transition-colors hover:bg-surface active:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      onClick={handleClick}
+      disabled={isLoading}
+      aria-busy={isLoading}
+      className="inline-flex h-12 w-full items-center justify-center gap-3 rounded-full border border-border bg-surface-elevated px-4 text-sm font-medium text-text transition-colors hover:bg-surface active:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-wait disabled:opacity-60"
     >
       <svg aria-hidden="true" viewBox="0 0 20 20" className="size-[18px]">
         <path
@@ -31,7 +71,7 @@ export function AuthProviderButton({
           d="M10 3.97c1.47 0 2.8.5 3.84 1.52l2.88-2.88A9.64 9.64 0 0 0 10 0a10 10 0 0 0-8.94 5.58l3.35 2.55C5.2 5.73 7.4 3.97 10 3.97Z"
         />
       </svg>
-      Continue with Google
+      {isLoading ? "Connecting to Google..." : "Continue with Google"}
     </button>
   );
 }

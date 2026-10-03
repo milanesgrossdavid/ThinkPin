@@ -153,7 +153,7 @@ export function SearchPage({
   const [mode, setMode] = useState<SearchMode>(initialMode);
   const [view, setView] = useState<BookmarkView>("list");
   const [focused, setFocused] = useState(false);
-  const [searchState, setSearchState] = useState<SearchState>({
+  const [searchState, setSearchState] = useState<SearchState<LibraryBookmark>>({
     query: initialQuery,
     results: [],
     topics: [],

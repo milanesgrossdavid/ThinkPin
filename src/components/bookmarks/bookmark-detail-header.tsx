@@ -80,7 +80,7 @@ export function BookmarkDetailHeader({
     <header className="mb-5 flex min-h-10 items-center justify-between gap-3 sm:mb-7">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <Link
-          href="/library"
+          href="/app/bookmarks"
           className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-full px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <ArrowLeft aria-hidden="true" className="size-4" />
@@ -96,7 +96,7 @@ export function BookmarkDetailHeader({
             className="size-4 shrink-0 text-border"
           />
           <Link
-            href="/library"
+            href="/app/bookmarks"
             className="shrink-0 text-text-muted transition-colors hover:text-text focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             Library

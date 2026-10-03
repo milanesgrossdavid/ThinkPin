@@ -1,13 +1,8 @@
-import type { Metadata } from "next";
-import { CollectionDetail } from "../../../components/collections/collection-detail";
+import { redirect } from "next/navigation";
 
-export const metadata: Metadata = {
-  title: "Collection | ThinkPin",
-};
-
-export default async function CollectionPage({
+export default async function LegacyCollectionPage({
   params,
 }: PageProps<"/collections/[collectionId]">) {
   const { collectionId } = await params;
-  return <CollectionDetail collectionId={collectionId} />;
+  redirect(`/app/collections/${encodeURIComponent(collectionId)}`);
 }

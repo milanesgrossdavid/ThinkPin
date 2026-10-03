@@ -117,7 +117,7 @@ function CollectionPreview({ bookmarks }: { bookmarks: LibraryBookmark[] }) {
         return (
           <Link
             key={bookmark.id}
-            href={`/library/${encodeURIComponent(bookmark.id)}`}
+            href={`/app/bookmarks/${encodeURIComponent(bookmark.id)}`}
             aria-label={`Open ${bookmark.title}`}
             className={`relative flex min-w-0 items-center justify-center overflow-hidden rounded-xl border border-border/40 bg-gradient-to-br ${bookmark.artwork} shadow-sm transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`}
           >
@@ -173,7 +173,7 @@ function CollectionCard({
           <div className="min-w-0">
             <h2 className="truncate text-base font-semibold tracking-[-0.02em] text-text">
               <Link
-                href={`/collections/${encodeURIComponent(collection.id)}`}
+                href={`/app/collections/${encodeURIComponent(collection.id)}`}
                 className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 {collection.name}
@@ -243,7 +243,7 @@ function CollectionCard({
             {tags.map((tag) => (
               <Link
                 key={tag}
-                href={`/library?tag=${encodeURIComponent(tag)}`}
+                href={`/app/bookmarks?tag=${encodeURIComponent(tag)}`}
                 className="max-w-full truncate rounded-full bg-background px-2.5 py-1 text-[10px] font-medium text-text-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 #{tag.replace(/^#/, "")}

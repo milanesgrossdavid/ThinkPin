@@ -165,7 +165,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
     <main className="min-h-svh bg-background px-5 pb-16 pt-6 sm:px-8 sm:pb-20 sm:pt-10">
       <div className="mx-auto max-w-2xl">
         <Link
-          href="/library"
+          href="/app/bookmarks"
           className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <ArrowRight aria-hidden="true" className="size-4 rotate-180" />
@@ -508,7 +508,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
                 Save another
               </button>
               <Link
-                href="/library"
+                href="/app/bookmarks"
                 className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 Done

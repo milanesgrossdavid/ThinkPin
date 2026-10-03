@@ -145,7 +145,7 @@ export function BookmarkCard({
   );
   const visibleTags = tags.slice(0, 3);
   const hiddenTagCount = Math.max(0, tags.length - visibleTags.length);
-  const detailHref = `/library/${encodeURIComponent(bookmark.id)}`;
+  const detailHref = `/app/bookmarks/${encodeURIComponent(bookmark.id)}`;
 
   useEffect(() => {
     if (!dialogMode) {

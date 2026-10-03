@@ -55,7 +55,7 @@ const commands: CommandItem[] = [
     keywords: ["search", "find", "bookmarks", "memory"],
     shortcut: "⌘ ↵",
     icon: Search,
-    href: (query) => `/search${query ? `?q=${encodeURIComponent(query)}` : ""}`,
+    href: (query) => `/app/search${query ? `?q=${encodeURIComponent(query)}` : ""}`,
     section: "Recent",
   },
   {
@@ -65,7 +65,7 @@ const commands: CommandItem[] = [
     keywords: ["add", "save", "bookmark", "link", "new"],
     shortcut: "N",
     icon: BookmarkPlus,
-    href: "/save",
+    href: "/app/save",
     section: "Actions",
   },
   {
@@ -74,7 +74,7 @@ const commands: CommandItem[] = [
     description: "Start a new intentional group",
     keywords: ["create", "new", "collection", "group"],
     icon: FolderPlus,
-    href: "/collections?action=create",
+    href: "/app/collections?action=create",
     section: "Actions",
   },
   {
@@ -83,7 +83,7 @@ const commands: CommandItem[] = [
     description: "Bookmarks you marked as favorites",
     keywords: ["favorite", "favorites", "heart", "liked"],
     icon: Heart,
-    href: "/library?filter=favorites",
+    href: "/app/favorites",
     section: "Navigation",
   },
   {
@@ -93,7 +93,7 @@ const commands: CommandItem[] = [
     keywords: ["dashboard", "home", "overview"],
     shortcut: "G D",
     icon: LayoutDashboard,
-    href: "/dashboard",
+    href: "/app",
     section: "Navigation",
   },
   {
@@ -103,7 +103,7 @@ const commands: CommandItem[] = [
     keywords: ["library", "bookmarks", "saved"],
     shortcut: "G L",
     icon: Library,
-    href: "/library",
+    href: "/app/bookmarks",
     section: "Navigation",
   },
   {
@@ -113,7 +113,7 @@ const commands: CommandItem[] = [
     keywords: ["collections", "groups"],
     shortcut: "G C",
     icon: FolderPlus,
-    href: "/collections",
+    href: "/app/collections",
     section: "Navigation",
   },
   {
@@ -123,7 +123,7 @@ const commands: CommandItem[] = [
     keywords: ["ai", "ask", "answer", "assistant"],
     icon: Sparkles,
     href: (query) =>
-      `/search?mode=ai${query ? `&q=${encodeURIComponent(query)}` : ""}`,
+      `/app/search?mode=ai${query ? `&q=${encodeURIComponent(query)}` : ""}`,
     section: "AI",
   },
 ];
@@ -303,7 +303,7 @@ export function CommandMenu() {
     const encoded = queryText.trim()
       ? `?q=${encodeURIComponent(queryText.trim())}`
       : "";
-    navigate(`/search${encoded}`);
+    navigate(`/app/search${encoded}`);
   }, [navigate]);
 
   const safeActiveIndex = Math.min(
@@ -356,7 +356,7 @@ export function CommandMenu() {
             } else if (activeItem.type === "command") {
               runCommand(activeItem.command);
             } else {
-              navigate(`/library/${encodeURIComponent(activeItem.bookmark.id)}`);
+              navigate(`/app/bookmarks/${encodeURIComponent(activeItem.bookmark.id)}`);
             }
           } else if (query.trim()) {
             event.preventDefault();
@@ -394,10 +394,10 @@ export function CommandMenu() {
         }, 800);
       } else if (sequenceRef.current === "g") {
         const destinations: Record<string, string> = {
-          d: "/dashboard",
-          f: "/library?filter=favorites",
-          l: "/library",
-          c: "/collections",
+          d: "/app",
+          f: "/app/favorites",
+          l: "/app/bookmarks",
+          c: "/app/collections",
         };
         const destination = destinations[event.key.toLowerCase()];
         sequenceRef.current = "";
@@ -528,7 +528,7 @@ export function CommandMenu() {
                     type="button"
                     onMouseEnter={() => setActiveIndex(currentIndex)}
                     onClick={() =>
-                      navigate(`/library/${encodeURIComponent(bookmark.id)}`)
+                      navigate(`/app/bookmarks/${encodeURIComponent(bookmark.id)}`)
                     }
                     className={`flex min-h-12 w-full mt-2 mb-2 items-center gap-3 rounded-2xl px-3 text-left transition-colors ${
                       safeActiveIndex === currentIndex

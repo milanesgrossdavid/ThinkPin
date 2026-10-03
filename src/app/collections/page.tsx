@@ -1,14 +1,8 @@
-import type { Metadata } from "next";
-import { CollectionsBrowser } from "../../components/collections/collections-browser";
+import { redirect } from "next/navigation";
+import { withSearchParams } from "../../lib/auth/legacy-redirect";
 
-export const metadata: Metadata = {
-  title: "Collections | ThinkPin",
-  description: "Organize the things you want to remember.",
-};
-
-export default async function CollectionsPage({
+export default async function LegacyCollectionsPage({
   searchParams,
 }: PageProps<"/collections">) {
-  const { action } = await searchParams;
-  return <CollectionsBrowser initialCreate={action === "create"} />;
+  redirect(withSearchParams("/app/collections", await searchParams));
 }

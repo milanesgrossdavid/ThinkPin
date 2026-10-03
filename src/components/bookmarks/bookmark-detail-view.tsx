@@ -116,7 +116,7 @@ function CardLink({ bookmark }: { bookmark: Bookmark }) {
   return (
     <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-border/60 bg-background p-2 transition-colors hover:border-primary/30 hover:bg-surface sm:gap-3 sm:p-3">
       <Link
-        href={`/library/${encodeURIComponent(bookmark.id)}`}
+        href={`/app/bookmarks/${encodeURIComponent(bookmark.id)}`}
         className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         <BookmarkThumbnail
@@ -494,7 +494,7 @@ export function BookmarkDetailView({
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-sm font-semibold text-text">Tags</h2>
               <Link
-                href={`/library?tag=${encodeURIComponent(tags[0] ?? bookmark.topic)}`}
+                href={`/app/bookmarks?tag=${encodeURIComponent(tags[0] ?? bookmark.topic)}`}
                 className="text-xs font-medium text-primary hover:underline"
               >
                 Browse related
@@ -507,7 +507,7 @@ export function BookmarkDetailView({
               {tags.map((tag) => (
                 <Link
                   key={tag}
-                  href={`/library?tag=${encodeURIComponent(tag)}`}
+                  href={`/app/bookmarks?tag=${encodeURIComponent(tag)}`}
                   className="inline-flex min-h-8 items-center rounded-full bg-background px-3 text-xs font-medium text-text-muted transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   #{tag.replace(/^#/, "")}
@@ -547,7 +547,7 @@ export function BookmarkDetailView({
           <section className="py-5 sm:py-6">
             <h2 className="text-sm font-semibold text-text">Collection</h2>
             <Link
-              href={`/library?collection=${encodeURIComponent(activeCollection)}`}
+              href={`/app/bookmarks?collection=${encodeURIComponent(activeCollection)}`}
               className="mt-3 flex min-h-12 items-center justify-between rounded-2xl border border-border/70 bg-background px-4 text-sm font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               {activeCollection}

@@ -1,10 +1,19 @@
-import type { LibraryBookmark } from "../components/bookmarks/mock-bookmarks";
-
 export type SearchMode = "keyword" | "full-text" | "semantic" | "ai";
 
-export type SearchState = {
+export type SearchableBookmark = {
+  id: string;
+  title: string;
+  description?: string;
+  domain: string;
+  topic: string;
+  subtopic: string;
+  tags?: string[];
+  searchTerms: string[];
+};
+
+export type SearchState<T extends SearchableBookmark = SearchableBookmark> = {
   query: string;
-  results: LibraryBookmark[];
+  results: T[];
   topics: string[];
   mode: SearchMode;
 };
@@ -52,8 +61,8 @@ function queryTerms(query: string) {
     .filter((term) => term.length > 1 && !stopWords.has(term));
 }
 
-export function searchBookmarks(
-  bookmarks: LibraryBookmark[],
+export function searchBookmarks<T extends SearchableBookmark>(
+  bookmarks: T[],
   query: string,
   mode: Exclude<SearchMode, "ai">,
   notesByBookmark: Record<string, string> = {},
@@ -111,8 +120,8 @@ export function searchBookmarks(
     .map((result) => result.bookmark);
 }
 
-export function relatedTopics(
-  results: LibraryBookmark[],
+export function relatedTopics<T extends SearchableBookmark>(
+  results: T[],
   query: string,
   mode: Exclude<SearchMode, "ai">,
 ) {

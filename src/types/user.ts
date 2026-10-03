@@ -4,4 +4,5 @@ export type UserProfile = {
   username?: string;
   avatarUrl?: string;
   createdAt: string;
+  updatedAt?: string;
 };

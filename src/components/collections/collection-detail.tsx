@@ -365,7 +365,7 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
       <main className="min-h-svh bg-background px-5 py-8 sm:px-8">
         <div className="mx-auto max-w-3xl">
           <Link
-            href="/collections"
+            href="/app/collections"
             className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-text-muted hover:bg-surface-elevated hover:text-text"
           >
             <ArrowLeft aria-hidden="true" className="size-4" />
@@ -384,7 +384,7 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
       <header className="border-b border-border/60 bg-background px-5 py-6 sm:px-8 sm:py-9 lg:px-12">
         <div className="mx-auto max-w-container-xl">
           <Link
-            href="/collections"
+            href="/app/collections"
             className="inline-flex min-h-9 items-center gap-2 rounded-full px-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <ArrowLeft aria-hidden="true" className="size-4" />

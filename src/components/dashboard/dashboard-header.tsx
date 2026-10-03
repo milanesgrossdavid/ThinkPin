@@ -1,5 +1,6 @@
 import { Search } from "lucide-react";
 import Link from "next/link";
+import { DashboardAccountButton } from "./dashboard-account-button";
 
 export function DashboardHeader() {
   return (
@@ -11,14 +12,7 @@ export function DashboardHeader() {
               <p className="text-xs font-medium text-text-muted sm:text-sm">
                 Good morning, David
               </p>
-              <span
-                role="img"
-                aria-label="David"
-                title="David"
-                className="flex size-9 shrink-0 items-center justify-center rounded-full border border-border bg-surface-elevated text-xs font-semibold text-text lg:hidden"
-              >
-                D
-              </span>
+              <DashboardAccountButton />
             </div>
             <h1 className="mt-1.5 text-2xl font-semibold leading-tight tracking-[-0.045em] text-text sm:mt-2 sm:text-4xl">
               Your Internet Memory
@@ -30,7 +24,7 @@ export function DashboardHeader() {
 
           <div className="flex w-full items-center gap-2 lg:w-auto lg:gap-3">
             <Link
-              href="/search"
+              href="/app/search"
               aria-label="Search your memory. Open command menu with Command K."
               className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-border/70 bg-surface-elevated pl-10 pr-3 text-xs text-text-muted outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 sm:h-11 sm:pr-3 sm:text-sm lg:w-64 lg:flex-none"
             >
@@ -46,14 +40,7 @@ export function DashboardHeader() {
               </kbd>
             </Link>
 
-            <span
-              role="img"
-              aria-label="David"
-              title="David"
-              className="hidden size-11 shrink-0 items-center justify-center rounded-full border border-border bg-surface-elevated text-sm font-semibold text-text lg:flex"
-            >
-              D
-            </span>
+            <DashboardAccountButton />
           </div>
         </div>
       </div>
