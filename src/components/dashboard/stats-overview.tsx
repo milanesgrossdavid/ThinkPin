@@ -1,13 +1,11 @@
-export type DashboardStats = {
-  bookmarks: number;
-  collections: number;
-  topics: number;
-};
+import type { DashboardStats } from "@/types";
+
+export type { DashboardStats } from "../../types/dashboard";
 
 const statLabels = [
-  { key: "bookmarks", label: "Bookmarks" },
-  { key: "collections", label: "Collections" },
-  { key: "topics", label: "Topics" },
+  { key: "bookmarkCount", label: "Bookmarks" },
+  { key: "collectionCount", label: "Collections" },
+  { key: "topicCount", label: "Topics" },
 ] as const;
 
 export function StatsOverview({ stats }: { stats: DashboardStats }) {

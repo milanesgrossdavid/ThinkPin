@@ -14,8 +14,12 @@ export type BookmarkDetailActivity = {
 };
 
 export type BookmarkDetailState = {
+  title?: string;
+  description?: string;
   favorite?: boolean;
+  unread?: boolean;
   archived?: boolean;
+  deleted?: boolean;
   notes?: string;
   intent?: BookmarkIntent;
   collection?: string;
@@ -149,8 +153,14 @@ export function readBookmarkDetailState(snapshot: string | null): BookmarkDetail
 
     const value = parsed as Record<string, unknown>;
     const state: BookmarkDetailState = {};
+    if (typeof value.title === "string") state.title = value.title;
+    if (typeof value.description === "string") {
+      state.description = value.description;
+    }
     if (typeof value.favorite === "boolean") state.favorite = value.favorite;
+    if (typeof value.unread === "boolean") state.unread = value.unread;
     if (typeof value.archived === "boolean") state.archived = value.archived;
+    if (typeof value.deleted === "boolean") state.deleted = value.deleted;
     if (typeof value.notes === "string") state.notes = value.notes;
     if (isBookmarkIntent(value.intent)) state.intent = value.intent;
     if (typeof value.collection === "string") {
@@ -196,12 +206,17 @@ export function updateBookmarkDetailState(
   if (bookmarkIndex !== -1) {
     bookmarks[bookmarkIndex] = {
       ...bookmarks[bookmarkIndex],
+      ...(updates.title !== undefined ? { title: updates.title } : {}),
+      ...(updates.description !== undefined
+        ? { description: updates.description }
+        : {}),
       ...(updates.favorite !== undefined
         ? { favorite: updates.favorite }
         : {}),
       ...(updates.archived !== undefined
         ? { archived: updates.archived }
         : {}),
+      ...(updates.unread !== undefined ? { unread: updates.unread } : {}),
       ...(updates.collection !== undefined
         ? { collection: updates.collection }
         : {}),
@@ -452,7 +467,7 @@ export function saveBookmarkImmediately(
 export function updateSavedBookmark(
   bookmarkId: string,
   updates: Partial<
-    Pick<SavedBookmark, "title" | "collection" | "tags" | "intent">
+    Pick<SavedBookmark, "title" | "description" | "collection" | "tags" | "intent">
   >,
 ) {
   const bookmarks = readBookmarks();

@@ -2,17 +2,17 @@ import type { Metadata } from "next";
 import { DashboardHeader } from "../../components/dashboard/dashboard-header";
 import {
   StatsOverview,
-  type DashboardStats,
 } from "../../components/dashboard/stats-overview";
+import type { DashboardStats } from "@/types";
 import { RecentlySaved } from "../../components/dashboard/recently-saved";
 import { SuggestedForYou } from "../../components/dashboard/suggested-for-you";
 import { Rediscover } from "../../components/dashboard/rediscover";
 import { QuickSave } from "../../components/dashboard/quick-save";
 
 const dashboardStats: DashboardStats = {
-  bookmarks: 1284,
-  collections: 42,
-  topics: 17,
+  bookmarkCount: 1284,
+  collectionCount: 42,
+  topicCount: 17,
 };
 
 export const metadata: Metadata = {

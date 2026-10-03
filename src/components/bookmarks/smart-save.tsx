@@ -5,6 +5,7 @@ import {
   useEffect,
   useRef,
   useState,
+  useTransition,
   type FormEvent,
 } from "react";
 import Link from "next/link";
@@ -21,12 +22,14 @@ import {
 } from "lucide-react";
 import {
   normalizeBookmarkUrl,
-  saveBookmarkImmediately,
   suggestBookmarkOrganization,
   updateSavedBookmark,
   type BookmarkIntent,
   type SavedBookmark,
 } from "../../lib/bookmarks";
+import { mockSaveBookmark } from "../../lib/mock-actions/bookmarks";
+import { useAppToast } from "../feedback/AppToaster";
+import { ActionButton } from "../ui/ActionButton";
 
 const intents: BookmarkIntent[] = [
   "Research",
@@ -48,6 +51,7 @@ function displayTitle(bookmark: SavedBookmark) {
 }
 
 export function SmartSave({ initialUrl }: { initialUrl?: string }) {
+  const toast = useAppToast();
   const processedInitialUrl = useRef("");
   const [url, setUrl] = useState("");
   const [bookmark, setBookmark] = useState<SavedBookmark | null>(null);
@@ -56,6 +60,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [editTitleOpen, setEditTitleOpen] = useState(false);
+  const [isPending, startTransition] = useTransition();
 
   useEffect(() => {
     if (!bookmark || enrichmentStep >= enrichmentSteps.length) {
@@ -69,7 +74,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
     return () => window.clearTimeout(timeout);
   }, [bookmark, enrichmentStep]);
 
-  const saveUrl = useCallback((value: string) => {
+  const saveUrl = useCallback(async (value: string) => {
     setMessage("");
 
     try {
@@ -77,24 +82,33 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
       const suggestions = suggestBookmarkOrganization(
         parsedUrl.hostname.replace(/^www\./, ""),
       );
-      const result = saveBookmarkImmediately(parsedUrl.toString(), suggestions);
-      setBookmark(result.bookmark);
-      setAlreadySaved(result.alreadySaved);
+      const result = await mockSaveBookmark(parsedUrl.toString(), suggestions);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+      setBookmark(result.data.bookmark);
+      setAlreadySaved(result.data.alreadySaved);
       setEnrichmentStep(0);
       setEditTitleOpen(false);
       setMessage("");
       setIsError(false);
+      if (result.data.alreadySaved) {
+        toast.info("This bookmark is already saved");
+      } else {
+        toast.success("Bookmark saved");
+      }
     } catch (error) {
       setIsError(true);
-      setMessage(
+      const errorMessage =
         error instanceof Error
           ? error.message === "Stored bookmark data is invalid."
             ? "Saved bookmark data in this browser is invalid. Clear it before saving a new link."
             : error.message
-          : "We couldn't save this link. Check browser storage permissions and try again.",
-      );
+          : "We couldn't save this link. Check browser storage permissions and try again.";
+      setMessage(errorMessage);
+      toast.error("Couldn't save this bookmark", errorMessage);
     }
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (!initialUrl || processedInitialUrl.current === initialUrl) {
@@ -103,12 +117,16 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
 
     processedInitialUrl.current = initialUrl;
     setUrl(initialUrl);
-    saveUrl(initialUrl);
+    startTransition(async () => {
+      await saveUrl(initialUrl);
+    });
   }, [initialUrl, saveUrl]);
 
   function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    saveUrl(url);
+    startTransition(async () => {
+      await saveUrl(url);
+    });
   }
 
   function updateBookmark(
@@ -191,22 +209,53 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
                   className="h-14 w-full rounded-2xl border border-border bg-surface-elevated pl-12 pr-4 text-sm text-text shadow-sm outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/80 focus:border-primary focus:ring-4 focus:ring-primary/10 sm:h-16 sm:rounded-3xl sm:pl-14 sm:text-base"
                 />
               </label>
-              <button
+              <ActionButton
                 type="submit"
-                className="mt-3 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:mt-4 sm:w-auto sm:px-6"
+                status={isPending ? "loading" : isError ? "error" : "idle"}
+                className="mt-3 w-full sm:mt-4 sm:w-auto sm:px-6"
               >
-                Save bookmark
-                <ArrowRight aria-hidden="true" className="size-4" />
-              </button>
+                {isPending
+                  ? "Saving bookmark"
+                  : isError
+                    ? "Try again"
+                    : "Save bookmark"}
+              </ActionButton>
             </form>
             {message && (
-              <p
-                id="smart-save-message"
-                className={`mt-3 text-sm ${isError ? "text-error" : "text-text-muted"}`}
-                role={isError ? "alert" : "status"}
-              >
-                {message}
-              </p>
+              isError ? (
+                <div
+                  id="smart-save-message"
+                  className="mt-4 rounded-2xl border border-error/30 bg-error/5 p-4"
+                  role="alert"
+                >
+                  <p className="text-sm font-semibold text-text">
+                    Couldn&apos;t save this bookmark
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-text-muted">
+                    {message}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        await saveUrl(url);
+                      })
+                    }
+                    className="mt-3 text-sm font-medium text-primary hover:underline disabled:opacity-60"
+                  >
+                    Try again
+                  </button>
+                </div>
+              ) : (
+                <p
+                  id="smart-save-message"
+                  className="mt-3 text-sm text-text-muted"
+                  role="status"
+                >
+                  {message}
+                </p>
+              )
             )}
             <p className="mt-4 text-xs leading-5 text-text-muted">
               You can paste a link from anywhere on the web. GitHub · YouTube ·

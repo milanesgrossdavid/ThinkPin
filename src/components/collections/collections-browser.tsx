@@ -3,12 +3,12 @@
 import {
   useMemo,
   useState,
+  useTransition,
   useSyncExternalStore,
   type FormEvent,
 } from "react";
 import Link from "next/link";
 import {
-  Check,
   Folder,
   FolderPlus,
   MoreHorizontal,
@@ -27,7 +27,6 @@ import {
 } from "../../lib/bookmarks";
 import {
   bookmarkIdsForCollection,
-  createCollection,
   defaultCollectionId,
   getCollectionsSnapshot,
   getMembershipsSnapshot,
@@ -35,15 +34,22 @@ import {
   getServerMembershipsSnapshot,
   loadMemberships,
   loadCollections,
-  renameCollection,
   subscribeToMemberships,
   subscribeToCollections,
 } from "../../lib/collections";
 import { mockCollections } from "../../lib/mock/collections";
+import {
+  mockCreateCollection,
+  mockRenameCollection,
+} from "../../lib/mock-actions/collections";
+import { ErrorState } from "../feedback/ErrorState";
+import { useAppToast } from "../feedback/AppToaster";
+import { ActionButton } from "../ui/ActionButton";
 
 type CollectionCardModel = {
   id: string;
   name: string;
+  description: string;
   bookmarks: LibraryBookmark[];
   tags: string[];
   isCustom: boolean;
@@ -194,10 +200,22 @@ function CollectionCard({
               </button>
               {menuOpen && (
                 <div
-                  role="menu"
-                  aria-label={`Actions for ${collection.name}`}
-                  className="absolute right-0 top-10 z-20 w-44 rounded-2xl border border-border bg-surface-elevated p-1.5 shadow-xl"
+                  className="fixed inset-0 z-[90] bg-black/40 sm:contents"
+                  onMouseDown={(event) => {
+                    if (event.target === event.currentTarget) {
+                      setMenuOpen(false);
+                    }
+                  }}
                 >
+                  <div
+                    role="menu"
+                    aria-label={`Actions for ${collection.name}`}
+                    className="fixed inset-x-0 bottom-0 z-[91] rounded-t-3xl border border-border bg-surface-elevated p-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-xl sm:absolute sm:inset-auto sm:right-0 sm:top-10 sm:z-20 sm:w-44 sm:rounded-2xl sm:p-1.5 sm:pb-1.5"
+                  >
+                  <div className="mx-auto mb-2 mt-1 h-1 w-10 rounded-full bg-border sm:hidden" />
+                  <p className="px-3 pb-2 pt-1 text-sm font-semibold text-text sm:hidden">
+                    Actions
+                  </p>
                   <button
                     type="button"
                     role="menuitem"
@@ -209,11 +227,17 @@ function CollectionCard({
                   >
                     Rename collection
                   </button>
+                  </div>
                 </div>
               )}
             </div>
           )}
         </div>
+        {collection.description && (
+          <p className="mt-3 line-clamp-2 text-xs leading-5 text-text-muted">
+            {collection.description}
+          </p>
+        )}
         {tags.length > 0 ? (
           <div className="mt-4 flex min-h-6 flex-wrap gap-1.5">
             {tags.map((tag) => (
@@ -268,7 +292,11 @@ export function CollectionsBrowser({
   const [editingCollection, setEditingCollection] =
     useState<CollectionCardModel | null>(null);
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [saveSucceeded, setSaveSucceeded] = useState(false);
+  const toast = useAppToast();
 
   const {
     cards,
@@ -311,13 +339,16 @@ export function CollectionsBrowser({
           const state = detailStates.get(bookmark.id);
           return {
             ...bookmark,
+            title: state?.title ?? bookmark.title,
+            description: state?.description ?? bookmark.description,
             topic: state?.collection ?? bookmark.topic,
             tags: state?.tags ?? bookmark.tags,
+            intent: state?.intent ?? bookmark.intent,
           };
         })
         .filter((bookmark) => {
           const state = detailStates.get(bookmark.id);
-          return !state?.archived;
+          return !state?.archived && !state?.deleted;
         });
       const memberships = loadMemberships(membershipsSnapshot);
       const customCollections = loadCollections(collectionsSnapshot);
@@ -347,6 +378,11 @@ export function CollectionsBrowser({
           return {
             id,
             name: collectionName,
+            description:
+              custom?.description ??
+              mockCollections.find((item) => item.name === collectionName)
+                ?.description ??
+              "",
             bookmarks: items,
             tags: collectionTags(items),
             isCustom: customNames.has(collectionName),
@@ -380,7 +416,7 @@ export function CollectionsBrowser({
       return cards;
     }
     return cards.filter((card) =>
-      [card.name, ...card.tags, ...card.bookmarks.map((item) => item.title)]
+      [card.name, card.description, ...card.tags]
         .join(" ")
         .toLowerCase()
         .includes(search),
@@ -389,14 +425,18 @@ export function CollectionsBrowser({
 
   function openCreate() {
     setName("");
+    setDescription("");
     setMessage("");
+    setSaveSucceeded(false);
     setEditingCollection(null);
     setShowCreate(true);
   }
 
   function openRename(collection: CollectionCardModel) {
     setName(collection.name);
+    setDescription(collection.description);
     setMessage("");
+    setSaveSucceeded(false);
     setEditingCollection(collection);
     setShowCreate(true);
   }
@@ -404,25 +444,36 @@ export function CollectionsBrowser({
   function submitCollection(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    try {
+    setSaveSucceeded(false);
+    startTransition(async () => {
       const names = cards
         .filter((card) => card.id !== editingCollection?.id)
         .map((card) => card.name);
-      if (editingCollection) {
-        renameCollection(editingCollection.id, name, names);
-      } else {
-        createCollection(name, cards.map((card) => card.name));
+      const result = editingCollection
+        ? await mockRenameCollection(editingCollection.id, name, names)
+        : await mockCreateCollection(
+            name,
+            cards.map((card) => card.name),
+            description,
+          );
+      if (!result.success) {
+        setMessage(result.error);
+        toast.error("Couldn't save collection", result.error);
+        return;
       }
-      setShowCreate(false);
-      setEditingCollection(null);
-      setName("");
-    } catch (error) {
-      setMessage(
-        error instanceof Error
-          ? error.message
-          : "We couldn't save this collection. Please try again.",
+
+      toast.success(
+        editingCollection ? "Collection renamed" : "Collection created",
       );
-    }
+      setSaveSucceeded(true);
+      window.setTimeout(() => {
+        setShowCreate(false);
+        setEditingCollection(null);
+        setName("");
+        setDescription("");
+        setSaveSucceeded(false);
+      }, 650);
+    });
   }
 
   return (
@@ -485,9 +536,9 @@ export function CollectionsBrowser({
           </label>
 
           {storageError && (
-            <p className="mt-4 text-sm text-error" role="alert">
-              {storageError}
-            </p>
+            <div className="mt-4">
+              <ErrorState description={storageError} />
+            </div>
           )}
           {!storageError && (
             <>
@@ -515,7 +566,9 @@ export function CollectionsBrowser({
                     No collections found
                   </h2>
                   <p className="mt-1 text-sm text-text-muted">
-                    Try another search or create a new collection.
+                    {query
+                      ? "Try another search."
+                      : "Create a collection to start organizing your saved links."}
                   </p>
                   {query && (
                     <button
@@ -553,7 +606,7 @@ export function CollectionsBrowser({
                 id="collection-dialog-title"
                 className="text-lg font-semibold tracking-[-0.03em] text-text"
               >
-                {editingCollection ? "Rename collection" : "New collection"}
+                {editingCollection ? "Rename collection" : "Create collection"}
               </h2>
               <button
                 type="button"
@@ -567,29 +620,75 @@ export function CollectionsBrowser({
             <form onSubmit={submitCollection}>
               <label className="block">
                 <span className="mb-2 block text-xs font-medium text-text">
-                  Collection name
+                  Name
                 </span>
                 <input
                   autoFocus
                   value={name}
-                  onChange={(event) => setName(event.target.value)}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    setMessage("");
+                  }}
                   placeholder="e.g. Product ideas"
                   maxLength={60}
                   className="h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-text outline-none placeholder:text-text-muted/80 focus:border-primary focus:ring-4 focus:ring-primary/10"
                 />
               </label>
+              {!editingCollection && (
+                <label className="mt-4 block">
+                  <span className="mb-2 block text-xs font-medium text-text">
+                    Description
+                  </span>
+                  <textarea
+                    value={description}
+                    onChange={(event) => {
+                      setDescription(event.target.value);
+                      setMessage("");
+                    }}
+                    placeholder="Web development resources..."
+                    rows={3}
+                    maxLength={240}
+                    className="w-full resize-y rounded-xl border border-border bg-background px-4 py-3 text-sm leading-5 text-text outline-none placeholder:text-text-muted/80 focus:border-primary focus:ring-4 focus:ring-primary/10"
+                  />
+                </label>
+              )}
               {message && (
                 <p className="mt-2 text-xs text-error" role="alert">
                   {message}
                 </p>
               )}
-              <button
-                type="submit"
-                className="mt-5 inline-flex h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                <Check aria-hidden="true" className="size-4" />
-                {editingCollection ? "Save changes" : "Create collection"}
-              </button>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => setShowCreate(false)}
+                  className="min-h-11 rounded-full border border-border px-4 text-sm font-medium text-text-muted transition-colors hover:bg-background disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <ActionButton
+                  type="submit"
+                  status={
+                    isPending
+                      ? "loading"
+                      : saveSucceeded
+                        ? "success"
+                        : message
+                          ? "error"
+                          : "idle"
+                  }
+                >
+                  {isPending
+                    ? "Saving..."
+                    : saveSucceeded
+                      ? "Saved"
+                      : message
+                        ? "Try again"
+                    : editingCollection
+                      ? "Save changes"
+                      : "Create"}
+                </ActionButton>
+              </div>
             </form>
           </section>
         </div>

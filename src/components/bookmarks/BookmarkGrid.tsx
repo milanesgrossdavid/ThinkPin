@@ -5,17 +5,9 @@ type BookmarkGridProps = {
   bookmarks: Bookmark[];
   labelledBy?: string;
   id?: string;
-  onFavoriteChange?: (bookmarkId: string, favorite: boolean) => void;
-  onUnreadChange?: (bookmarkId: string, unread: boolean) => void;
 };
 
-export function BookmarkGrid({
-  bookmarks,
-  labelledBy,
-  id,
-  onFavoriteChange,
-  onUnreadChange,
-}: BookmarkGridProps) {
+export function BookmarkGrid({ bookmarks, labelledBy, id }: BookmarkGridProps) {
   return (
     <ul
       id={id}
@@ -26,8 +18,6 @@ export function BookmarkGrid({
         <li key={bookmark.id} className="min-w-0">
           <BookmarkCard
             bookmark={bookmark}
-            onFavoriteChange={onFavoriteChange}
-            onUnreadChange={onUnreadChange}
           />
         </li>
       ))}

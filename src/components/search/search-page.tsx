@@ -25,11 +25,13 @@ import {
   subscribeToBookmarks,
 } from "../../lib/bookmarks";
 import {
-  relatedTopics,
-  searchBookmarks,
   type SearchMode,
   type SearchState,
 } from "../../lib/search";
+import { mockSearchBookmarks } from "../../lib/mock-actions/search";
+import { useAppToast } from "../feedback/AppToaster";
+import { ErrorState } from "../feedback/ErrorState";
+import { BookmarkGridSkeleton, BookmarkSkeleton } from "../skeletons/app-skeletons";
 
 const searchSuggestions = [
   "Next.js authentication",
@@ -114,13 +116,17 @@ function loadSearchData(
       const detail = details.get(bookmark.id);
       return {
         ...bookmark,
+        title: detail?.title ?? bookmark.title,
+        description: detail?.description ?? bookmark.description,
         topic: detail?.collection ?? bookmark.topic,
         tags: detail?.tags ?? bookmark.tags,
+        intent: detail?.intent ?? bookmark.intent,
         favorite: detail?.favorite ?? bookmark.favorite,
         archived: detail?.archived ?? bookmark.archived,
+        deleted: detail?.deleted ?? false,
       };
     })
-    .filter((bookmark) => !bookmark.archived);
+    .filter((bookmark) => !bookmark.archived && !bookmark.deleted);
 
   return { bookmarks, notesByBookmark };
 }
@@ -147,6 +153,18 @@ export function SearchPage({
   const [mode, setMode] = useState<SearchMode>(initialMode);
   const [view, setView] = useState<BookmarkView>("list");
   const [focused, setFocused] = useState(false);
+  const [searchState, setSearchState] = useState<SearchState>({
+    query: initialQuery,
+    results: [],
+    topics: [],
+    mode: initialMode,
+  });
+  const [requestPending, setRequestPending] = useState(
+    Boolean(initialQuery.trim()) && initialMode !== "ai",
+  );
+  const [searchError, setSearchError] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const toast = useAppToast();
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedQuery(query), 300);
@@ -160,39 +178,93 @@ export function SearchPage({
         detailsSnapshot,
       );
       return { bookmarks, notesByBookmark, storageError: "" };
-    } catch {
+    } catch (error) {
       return {
-        bookmarks: mockBookmarks,
+        bookmarks: [],
         notesByBookmark: {},
         storageError:
-          bookmarksSnapshot === null || detailsSnapshot === null
-            ? "We couldn't access locally saved items. Showing sample bookmarks instead."
-            : "Some saved search data is invalid. Showing sample bookmarks instead.",
+          error instanceof Error
+            ? error.message
+            : "We couldn't load your library from this browser.",
       };
     }
   }, [bookmarksSnapshot, detailsSnapshot]);
 
-  const searchState: SearchState = useMemo(() => {
+  useEffect(() => {
+    let active = true;
     if (!debouncedQuery.trim() || mode === "ai") {
-      return { query: debouncedQuery, results: [], topics: [], mode };
+      return () => {
+        active = false;
+      };
     }
 
-    const results = searchBookmarks(
-      bookmarks,
-      debouncedQuery,
-      mode,
-      notesByBookmark,
-    );
-    return {
-      query: debouncedQuery,
-      results,
-      topics: relatedTopics(results, debouncedQuery, mode),
-      mode,
-    };
-  }, [bookmarks, debouncedQuery, mode, notesByBookmark]);
+    if (storageError) {
+      return () => {
+        active = false;
+      };
+    }
 
-  const isSearching = query !== debouncedQuery;
+    Promise.resolve()
+      .then(() => {
+        if (active) {
+          setRequestPending(true);
+          setSearchError("");
+        }
+        return mockSearchBookmarks(
+          bookmarks,
+          debouncedQuery,
+          mode,
+          notesByBookmark,
+        );
+      })
+      .then((result) => {
+        if (active) {
+          setSearchState(result);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setSearchState({
+            query: debouncedQuery,
+            results: [],
+            topics: [],
+            mode,
+          });
+          setSearchError("Try again in a moment.");
+          toast.error(
+            "Something went wrong",
+            "We couldn't search your library.",
+          );
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setRequestPending(false);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [
+    bookmarks,
+    debouncedQuery,
+    mode,
+    notesByBookmark,
+    retryCount,
+    storageError,
+    toast,
+  ]);
+
   const hasQuery = Boolean(query.trim());
+  const isSearching =
+    hasQuery &&
+    mode !== "ai" &&
+    query === debouncedQuery &&
+    (requestPending ||
+      searchState.query !== debouncedQuery ||
+      searchState.mode !== mode);
+  const isDebouncing = hasQuery && query !== debouncedQuery;
 
   return (
     <main className="min-h-svh bg-background px-5 pb-16 pt-8 sm:px-8 sm:pb-20 sm:pt-12 lg:px-12">
@@ -339,17 +411,17 @@ export function SearchPage({
           )}
         </div>
 
-        {storageError && (
-          <p className="mt-4 text-xs text-warning" role="status">
-            {storageError}
-          </p>
-        )}
-
         {!hasQuery ? (
           <section className="mt-10 max-w-3xl sm:mt-14">
-            <h2 className="text-sm font-semibold text-text">
-              Try searching for
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-text">
+              Search your memory
             </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Find anything you&apos;ve saved.
+            </p>
+            <h3 className="mt-6 text-sm font-semibold text-text">
+              Try searching for
+            </h3>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               {searchSuggestions.map((suggestion) => (
                 <button
@@ -385,10 +457,53 @@ export function SearchPage({
               Search semantically instead
             </button>
           </section>
+        ) : storageError || (searchError && !isSearching) ? (
+          <div className="mt-8">
+            <ErrorState
+              title="Something went wrong"
+              description={
+                storageError ||
+                searchError ||
+                "We couldn't search your library."
+              }
+              onRetry={() => {
+                if (storageError) {
+                  window.location.reload();
+                  return;
+                }
+                setRetryCount((count) => count + 1);
+              }}
+            />
+          </div>
+        ) : isDebouncing ? (
+          <section className="mt-10 max-w-3xl sm:mt-14">
+            <h2 className="text-xl font-semibold tracking-[-0.03em] text-text">
+              Search your memory
+            </h2>
+            <p className="mt-1 text-sm text-text-muted">
+              Find anything you&apos;ve saved.
+            </p>
+          </section>
         ) : isSearching ? (
-          <p className="mt-8 text-sm text-text-muted" role="status" aria-live="polite">
-            Searching your memory...
-          </p>
+          <section
+            className="mt-8"
+            aria-label="Searching your memory"
+            aria-busy="true"
+            role="status"
+          >
+            <p className="mb-4 text-sm font-medium text-text-muted">
+              Searching your memory...
+            </p>
+            {view === "grid" ? (
+              <BookmarkGridSkeleton count={3} />
+            ) : (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }, (_, index) => (
+                  <BookmarkSkeleton key={index} variant="list" />
+                ))}
+              </div>
+            )}
+          </section>
         ) : (
           <section className="mt-8" aria-labelledby="search-results-title">
             <div className="flex flex-wrap items-end justify-between gap-3">
@@ -443,19 +558,26 @@ export function SearchPage({
                     <Search aria-hidden="true" className="size-5" />
                   </span>
                   <h3 className="mt-4 text-base font-semibold text-text">
-                    Nothing found
+                    No results found
                   </h3>
                   <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-text-muted">
-                    Try another search or switch to semantic search to explore
-                    related ideas.
+                    We couldn&apos;t find anything matching:
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setMode("semantic")}
-                    className="mt-4 text-sm font-medium text-primary hover:underline"
-                  >
-                    Search semantically
-                  </button>
+                  <p className="mt-2 wrap-break-word text-sm font-medium text-text">
+                    &quot;{searchState.query}&quot;
+                  </p>
+                  <p className="mt-2 text-sm text-text-muted">
+                    Try another search.
+                  </p>
+                  {mode !== "semantic" && (
+                    <button
+                      type="button"
+                      onClick={() => setMode("semantic")}
+                      className="mt-4 text-sm font-medium text-primary hover:underline"
+                    >
+                      Search semantically
+                    </button>
+                  )}
                 </div>
               )}
             </div>

@@ -23,13 +23,18 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
+  getBookmarkDetailsSnapshot,
   getBookmarksSnapshot,
+  getServerBookmarkDetailsSnapshot,
   getServerBookmarksSnapshot,
   loadSavedBookmarks,
+  readBookmarkDetailState,
+  subscribeToBookmarkDetails,
   subscribeToBookmarks,
 } from "../../lib/bookmarks";
 import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks";
 import { searchBookmarks } from "../../lib/search";
+import { requestSmartSave } from "../../lib/save-dialog";
 
 type CommandItem = {
   id: string;
@@ -160,6 +165,11 @@ export function CommandMenu() {
     getBookmarksSnapshot,
     getServerBookmarksSnapshot,
   );
+  const detailsSnapshot = useSyncExternalStore(
+    subscribeToBookmarkDetails,
+    getBookmarkDetailsSnapshot,
+    getServerBookmarkDetailsSnapshot,
+  );
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
@@ -179,8 +189,52 @@ export function CommandMenu() {
     }
   }, [bookmarksSnapshot]);
   const availableBookmarks = useMemo(
-    () => [...localBookmarks, ...mockBookmarks],
-    [localBookmarks],
+    () => {
+      const bookmarks = [...localBookmarks, ...mockBookmarks];
+      if (!detailsSnapshot) {
+        return bookmarks;
+      }
+      try {
+        const entries: unknown = JSON.parse(detailsSnapshot);
+        if (
+          !Array.isArray(entries) ||
+          !entries.every(
+            (entry) =>
+              Array.isArray(entry) &&
+              entry.length === 2 &&
+              typeof entry[0] === "string" &&
+              typeof entry[1] === "string",
+          )
+        ) {
+          return bookmarks;
+        }
+        const details = new Map(
+          entries.map(([id, value]: [string, string]) => [
+            id,
+            readBookmarkDetailState(value),
+          ]),
+        );
+        return bookmarks
+          .map((bookmark) => {
+            const detail = details.get(bookmark.id);
+            return {
+              ...bookmark,
+              title: detail?.title ?? bookmark.title,
+              description: detail?.description ?? bookmark.description,
+              topic: detail?.collection ?? bookmark.topic,
+              tags: detail?.tags ?? bookmark.tags,
+              intent: detail?.intent ?? bookmark.intent,
+              favorite: detail?.favorite ?? bookmark.favorite,
+              archived: detail?.archived ?? bookmark.archived,
+              deleted: detail?.deleted ?? false,
+            };
+          })
+          .filter((bookmark) => !bookmark.archived && !bookmark.deleted);
+      } catch {
+        return bookmarks;
+      }
+    },
+    [detailsSnapshot, localBookmarks],
   );
   const normalizedQuery = query.trim().toLowerCase();
   const matchingCommands = useMemo(
@@ -233,12 +287,17 @@ export function CommandMenu() {
   }, [close, router]);
 
   const runCommand = useCallback((command: CommandItem) => {
+    if (command.id === "add-bookmark") {
+      close();
+      requestSmartSave();
+      return;
+    }
     const href =
       typeof command.href === "string"
         ? command.href
         : command.href(query.trim());
     navigate(href);
-  }, [navigate, query]);
+  }, [close, navigate, query]);
 
   const openSearch = useCallback((queryText = "") => {
     const encoded = queryText.trim()
@@ -259,6 +318,14 @@ export function CommandMenu() {
 
     function handleKeyDown(event: KeyboardEvent) {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        if (
+          !open &&
+          document.querySelector(
+            'dialog[open], [role="dialog"][aria-modal="true"]',
+          )
+        ) {
+          return;
+        }
         event.preventDefault();
         setOpen(true);
         return;
@@ -309,6 +376,14 @@ export function CommandMenu() {
         return;
       }
 
+      if (
+        document.querySelector(
+          'dialog[open], [role="dialog"][aria-modal="true"]',
+        )
+      ) {
+        return;
+      }
+
       if (event.key.toLowerCase() === "g") {
         sequenceRef.current = "g";
         if (sequenceTimeoutRef.current !== null) {
@@ -336,7 +411,7 @@ export function CommandMenu() {
         }
       } else if (event.key.toLowerCase() === "n") {
         event.preventDefault();
-        router.push("/save");
+        requestSmartSave();
       }
     }
 
@@ -455,7 +530,7 @@ export function CommandMenu() {
                     onClick={() =>
                       navigate(`/library/${encodeURIComponent(bookmark.id)}`)
                     }
-                    className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left transition-colors ${
+                    className={`flex min-h-12 w-full mt-2 mb-2 items-center gap-3 rounded-2xl px-3 text-left transition-colors ${
                       safeActiveIndex === currentIndex
                         ? "bg-primary/10"
                         : "hover:bg-background"
@@ -498,7 +573,7 @@ export function CommandMenu() {
                     type="button"
                     onMouseEnter={() => setActiveIndex(currentIndex)}
                     onClick={() => runCommand(command)}
-                    className={`flex min-h-12 w-full items-center gap-3 rounded-2xl px-3 text-left transition-colors ${
+                    className={`flex min-h-12 w-full mt-2 mb-2 items-center gap-3 rounded-2xl px-3 text-left transition-colors ${
                       safeActiveIndex === currentIndex
                         ? "bg-primary/10"
                         : "hover:bg-background"

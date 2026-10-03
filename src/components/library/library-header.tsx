@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Folder, Plus } from "lucide-react";
+import { requestSmartSave } from "../../lib/save-dialog";
 
 type LibraryHeaderProps = {
   itemCount: number;
@@ -32,13 +35,14 @@ export function LibraryHeader({ itemCount }: LibraryHeaderProps) {
             <Folder aria-hidden="true" className="size-4" />
             <span>Collections</span>
           </Link>
-          <Link
-            href="/save"
+          <button
+            type="button"
+            onClick={() => requestSmartSave()}
             className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-5"
           >
             <Plus aria-hidden="true" className="size-4 sm:size-5" />
             <span>Save</span>
-          </Link>
+          </button>
         </div>
       </div>
     </header>

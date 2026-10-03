@@ -1,6 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 
-export type BookmarkView = "grid" | "list" | "compact";
+export type { BookmarkView } from "../../types/library";
 
 export type Bookmark = {
   id: string;

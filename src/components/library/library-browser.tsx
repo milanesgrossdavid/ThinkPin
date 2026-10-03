@@ -8,6 +8,7 @@ import {
 } from "react";
 import Link from "next/link";
 import {
+  Check,
   Globe2,
   LayoutGrid,
   List,
@@ -19,6 +20,8 @@ import { BookmarkGrid } from "../bookmarks/BookmarkGrid";
 import { BookmarkList } from "../bookmarks/BookmarkList";
 import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks";
 import type { BookmarkView } from "../bookmarks/types";
+import { requestSmartSave } from "../../lib/save-dialog";
+import { ErrorState } from "../feedback/ErrorState";
 import {
   getBookmarksSnapshot,
   getBookmarkDetailsSnapshot,
@@ -46,6 +49,7 @@ const tabs = [
 ] as const;
 
 type DateFilter = "any-time" | "today" | "this-week" | "this-month";
+type LibrarySort = "recent" | "oldest" | "updated" | "alphabetical";
 
 const topics = ["Development", "AI", "Design", "Research", "Inspiration"];
 const dateOptions = [
@@ -54,6 +58,12 @@ const dateOptions = [
   ["this-week", "This week"],
   ["this-month", "This month"],
 ] as const;
+const sortOptions: Array<{ value: LibrarySort; label: string }> = [
+  { value: "recent", label: "Recently saved" },
+  { value: "oldest", label: "Oldest saved" },
+  { value: "updated", label: "Recently updated" },
+  { value: "alphabetical", label: "Alphabetical" },
+];
 const ignoredSearchTerms = new Set([
   "a",
   "an",
@@ -112,6 +122,33 @@ function matchesDate(date: string, filter: DateFilter) {
   );
 }
 
+function savedTimestamp(bookmark: LibraryBookmark) {
+  const date = bookmark.savedDate ?? bookmark.savedAt;
+  const timestamp = Date.parse(date.length === 10 ? `${date}T12:00:00` : date);
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function updatedTimestamp(
+  detail: BookmarkDetailState | Record<string, unknown> | undefined,
+  fallback: number,
+) {
+  const activity = detail?.activity;
+  if (!Array.isArray(activity)) {
+    return fallback;
+  }
+  const latest = activity[0];
+  if (
+    typeof latest !== "object" ||
+    latest === null ||
+    !("at" in latest) ||
+    typeof latest.at !== "string"
+  ) {
+    return fallback;
+  }
+  const timestamp = Date.parse(latest.at);
+  return Number.isNaN(timestamp) ? fallback : timestamp;
+}
+
 export function LibraryBrowser({
   initialFilter,
   initialTag,
@@ -134,15 +171,27 @@ export function LibraryBrowser({
   const [filter, setFilter] = useState<LibraryFilter>(initialFilter);
   const [query, setQuery] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [selectedCollections, setSelectedCollections] = useState<string[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<DateFilter>("any-time");
+  const [contentTypeFilter, setContentTypeFilter] = useState<LibraryFilter>(
+    initialFilter === "videos" ||
+      initialFilter === "articles" ||
+      initialFilter === "repositories" ||
+      initialFilter === "products"
+      ? initialFilter
+      : "all",
+  );
+  const [draftContentType, setDraftContentType] =
+    useState<LibraryFilter>("all");
+  const [draftCollections, setDraftCollections] = useState<string[]>([]);
+  const [draftTags, setDraftTags] = useState<string[]>([]);
+  const [draftDateFilter, setDraftDateFilter] =
+    useState<DateFilter>("any-time");
   const [view, setView] = useState<BookmarkView>("grid");
-  const [favoriteOverrides, setFavoriteOverrides] = useState<
-    Record<string, boolean>
-  >({});
-  const [unreadOverrides, setUnreadOverrides] = useState<
-    Record<string, boolean>
-  >({});
+  const [sort, setSort] = useState<LibrarySort>("recent");
 
   const { savedBookmarks, storageMessage } = useMemo(() => {
     if (bookmarksSnapshot === null) {
@@ -227,6 +276,36 @@ export function LibraryBrowser({
       };
     }
   }, [detailsSnapshot]);
+  const availableCollections = useMemo(
+    () =>
+      [
+        ...new Set(
+          [...savedBookmarks, ...mockBookmarks]
+            .map((bookmark) => {
+              const collection = detailStates.get(bookmark.id)?.collection;
+              return typeof collection === "string"
+                ? collection
+                : bookmark.topic;
+            })
+            .filter(Boolean),
+        ),
+      ].sort((first, second) => first.localeCompare(second)),
+    [detailStates, savedBookmarks],
+  );
+  const availableTags = useMemo(
+    () =>
+      [
+        ...new Set(
+          [...savedBookmarks, ...mockBookmarks].flatMap((bookmark) => {
+            const tags = detailStates.get(bookmark.id)?.tags;
+            return Array.isArray(tags)
+              ? tags.filter((tag): tag is string => typeof tag === "string")
+              : (bookmark.tags ?? []);
+          }),
+        ),
+      ].sort((first, second) => first.localeCompare(second)),
+    [detailStates, savedBookmarks],
+  );
 
   useEffect(() => {
     function handlePopState() {
@@ -235,6 +314,14 @@ export function LibraryBrowser({
       );
       setFilter(
         currentFilter !== null && isLibraryFilter(currentFilter)
+          ? currentFilter
+          : "all",
+      );
+      setContentTypeFilter(
+        currentFilter === "videos" ||
+          currentFilter === "articles" ||
+          currentFilter === "repositories" ||
+          currentFilter === "products"
           ? currentFilter
           : "all",
       );
@@ -248,13 +335,62 @@ export function LibraryBrowser({
 
   function selectFilter(nextFilter: LibraryFilter) {
     setFilter(nextFilter);
+    if (
+      nextFilter === "all" ||
+      nextFilter === "videos" ||
+      nextFilter === "articles" ||
+      nextFilter === "repositories" ||
+      nextFilter === "products"
+    ) {
+      setContentTypeFilter(nextFilter);
+    } else {
+      setContentTypeFilter("all");
+    }
     const url = new URL(window.location.href);
     if (nextFilter === "all") {
       url.searchParams.delete("filter");
     } else {
       url.searchParams.set("filter", nextFilter);
     }
+
     window.history.pushState(null, "", `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function openFilters() {
+    setDraftContentType(contentTypeFilter);
+    setDraftCollections(selectedCollections);
+    setDraftTags(selectedTags);
+    setDraftDateFilter(dateFilter);
+    setFiltersOpen(true);
+  }
+
+  function applyMobileFilters() {
+    setContentTypeFilter(draftContentType);
+    if (filter !== "favorites" && filter !== "unread") {
+      setFilter(draftContentType);
+      const url = new URL(window.location.href);
+      if (draftContentType === "all") {
+        url.searchParams.delete("filter");
+      } else {
+        url.searchParams.set("filter", draftContentType);
+      }
+      window.history.pushState(
+        null,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    }
+    setSelectedCollections(draftCollections);
+    setSelectedTags(draftTags);
+    setDateFilter(draftDateFilter);
+    setFiltersOpen(false);
+  }
+
+  function resetMobileFilters() {
+    setDraftContentType("all");
+    setDraftCollections([]);
+    setDraftTags([]);
+    setDraftDateFilter("any-time");
   }
 
   const filteredBookmarks = useMemo(() => {
@@ -264,16 +400,31 @@ export function LibraryBrowser({
       .filter((term) => term.length > 1 && !ignoredSearchTerms.has(term))
       .map((term) => (term.endsWith("s") ? term.slice(0, -1) : term));
 
-    return [...savedBookmarks, ...mockBookmarks]
+    const filtered = [...savedBookmarks, ...mockBookmarks]
       .map((bookmark) => {
         const detailState = detailStates.get(bookmark.id);
         return {
           ...bookmark,
+          ...(typeof detailState?.title === "string"
+            ? { title: detailState.title }
+            : {}),
+          ...(typeof detailState?.description === "string"
+            ? { description: detailState.description }
+            : {}),
+          ...(typeof detailState?.intent === "string"
+            ? { intent: detailState.intent }
+            : {}),
           ...(typeof detailState?.favorite === "boolean"
             ? { favorite: detailState.favorite }
             : {}),
           ...(typeof detailState?.archived === "boolean"
             ? { archived: detailState.archived }
+            : {}),
+          ...(typeof detailState?.unread === "boolean"
+            ? { unread: detailState.unread }
+            : {}),
+          ...(typeof detailState?.deleted === "boolean"
+            ? { deleted: detailState.deleted }
             : {}),
           ...(typeof detailState?.collection === "string"
             ? { topic: detailState.collection }
@@ -288,68 +439,126 @@ export function LibraryBrowser({
         };
       })
       .filter((bookmark) => {
-      if (bookmark.archived) {
-        return false;
+        if (bookmark.archived || bookmark.deleted) {
+          return false;
+        }
+
+        const matchesTab =
+          (filter !== "favorites" || bookmark.favorite) &&
+          (filter !== "unread" || bookmark.unread);
+        const matchesContentType =
+          contentTypeFilter === "all" ||
+          bookmark.contentType ===
+            (contentTypeFilter === "videos"
+              ? "video"
+              : contentTypeFilter === "articles"
+                ? "article"
+                : contentTypeFilter === "repositories"
+                  ? "repository"
+                  : contentTypeFilter === "products"
+                    ? "product"
+                    : "");
+        const searchable = [
+          bookmark.title,
+          bookmark.description,
+          bookmark.topic,
+          bookmark.subtopic,
+          bookmark.domain,
+          ...bookmark.searchTerms,
+        ]
+          .join(" ")
+          .toLowerCase();
+        const matchesQuery = terms.every((term) => searchable.includes(term));
+        const matchesTopics =
+          selectedTopics.length === 0 ||
+          selectedTopics.includes(bookmark.topic);
+        const matchesSelectedCollections =
+          selectedCollections.length === 0 ||
+          selectedCollections.some(
+            (collection) =>
+              collection.toLowerCase() === bookmark.topic.toLowerCase(),
+          );
+        const matchesSelectedTags =
+          selectedTags.length === 0 ||
+          selectedTags.some((tag) =>
+            (bookmark.tags ?? []).some(
+              (bookmarkTag) =>
+                bookmarkTag.toLowerCase() === tag.toLowerCase(),
+            ),
+          );
+        const matchesTag =
+          !initialTag ||
+          (bookmark.tags ?? []).some(
+            (tag) => tag.toLowerCase() === initialTag.toLowerCase(),
+          );
+        const matchesCollection =
+          !initialCollection ||
+          bookmark.topic.toLowerCase() === initialCollection.toLowerCase();
+        return (
+          matchesTab &&
+          matchesContentType &&
+          matchesQuery &&
+          matchesTopics &&
+          matchesSelectedCollections &&
+          matchesSelectedTags &&
+          matchesTag &&
+          matchesCollection &&
+          matchesDate(bookmark.savedDate, dateFilter)
+        );
+      });
+    return filtered.sort((first, second) => {
+      if (sort === "alphabetical") {
+        return first.title.localeCompare(second.title);
       }
 
-      const matchesTab =
-        filter === "all" ||
-        (filter === "favorites" &&
-          (favoriteOverrides[bookmark.id] ?? bookmark.favorite)) ||
-        (filter === "unread" &&
-          (unreadOverrides[bookmark.id] ?? bookmark.unread)) ||
-        bookmark.contentType ===
-          (filter === "videos"
-            ? "video"
-            : filter === "articles"
-              ? "article"
-              : filter === "repositories"
-                ? "repository"
-                : filter === "products"
-                  ? "product"
-                  : "");
-      const searchable = [
-        bookmark.title,
-        bookmark.description,
-        bookmark.topic,
-        bookmark.subtopic,
-        bookmark.domain,
-        ...bookmark.searchTerms,
-      ]
-        .join(" ")
-        .toLowerCase();
-      const matchesQuery = terms.every((term) => searchable.includes(term));
-      const matchesTopics =
-        selectedTopics.length === 0 || selectedTopics.includes(bookmark.topic);
-      const matchesTag =
-        !initialTag ||
-        (bookmark.tags ?? []).some(
-          (tag) => tag.toLowerCase() === initialTag.toLowerCase(),
+      const firstSaved = savedTimestamp(first);
+      const secondSaved = savedTimestamp(second);
+      if (sort === "oldest") {
+        return firstSaved - secondSaved;
+      }
+      if (sort === "updated") {
+        const firstUpdated = updatedTimestamp(
+          detailStates.get(first.id),
+          firstSaved,
         );
-      const matchesCollection =
-        !initialCollection ||
-        bookmark.topic.toLowerCase() === initialCollection.toLowerCase();
-      return (
-        matchesTab &&
-        matchesQuery &&
-        matchesTopics &&
-        matchesTag &&
-        matchesCollection &&
-        matchesDate(bookmark.savedDate, dateFilter)
-      );
-      });
+        const secondUpdated = updatedTimestamp(
+          detailStates.get(second.id),
+          secondSaved,
+        );
+        return secondUpdated - firstUpdated;
+      }
+      return secondSaved - firstSaved;
+    });
   }, [
     dateFilter,
+    contentTypeFilter,
     detailStates,
-    favoriteOverrides,
     filter,
     initialCollection,
     initialTag,
     query,
+    sort,
     savedBookmarks,
+    selectedCollections,
+    selectedTags,
     selectedTopics,
-    unreadOverrides,
   ]);
+  const hasNoLibraryItems =
+    savedBookmarks.length + mockBookmarks.length === 0 &&
+    !query.trim() &&
+    filter === "all" &&
+    selectedTopics.length === 0 &&
+    dateFilter === "any-time" &&
+    !initialTag &&
+    !initialCollection;
+  const hasNoFavorites =
+    filter === "favorites" &&
+    !query.trim() &&
+    selectedTopics.length === 0 &&
+    dateFilter === "any-time" &&
+    !initialTag &&
+    !initialCollection &&
+    filteredBookmarks.length === 0;
 
   return (
     <section
@@ -408,9 +617,12 @@ export function LibraryBrowser({
           </div>
         )}
         {(storageMessage || detailStorageMessage) && (
-          <p className="mt-3 text-xs text-error" role="alert">
-            {storageMessage || detailStorageMessage}
-          </p>
+          <div className="mt-5">
+            <ErrorState
+              description={`We couldn't load your bookmarks. ${storageMessage || detailStorageMessage}`}
+              onRetry={() => window.location.reload()}
+            />
+          </div>
         )}
 
         <div className="mt-6 flex flex-col gap-4">
@@ -442,18 +654,37 @@ export function LibraryBrowser({
                 type="button"
                 aria-expanded={filtersOpen}
                 aria-controls="library-secondary-filters"
-                onClick={() => setFiltersOpen((open) => !open)}
+                onClick={() => {
+                  if (filtersOpen) {
+                    setFiltersOpen(false);
+                  } else {
+                    openFilters();
+                  }
+                }}
                 className={`inline-flex h-10 items-center gap-2 rounded-full border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-4 sm:text-sm ${
-                  filtersOpen || selectedTopics.length || dateFilter !== "any-time"
+                  filtersOpen ||
+                  selectedTopics.length ||
+                  selectedCollections.length ||
+                  selectedTags.length ||
+                  dateFilter !== "any-time" ||
+                  contentTypeFilter !== "all"
                     ? "border-primary/40 bg-primary/10 text-primary"
                     : "border-border/70 bg-surface-elevated text-text hover:bg-surface"
                 }`}
               >
                 <SlidersHorizontal aria-hidden="true" className="size-4" />
                 <span className="hidden sm:inline">Filters</span>
-                {(selectedTopics.length > 0 || dateFilter !== "any-time") && (
+                {(selectedTopics.length > 0 ||
+                  selectedCollections.length > 0 ||
+                  selectedTags.length > 0 ||
+                  contentTypeFilter !== "all" ||
+                  dateFilter !== "any-time") && (
                   <span className="flex size-5 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                    {selectedTopics.length + (dateFilter !== "any-time" ? 1 : 0)}
+                    {selectedTopics.length +
+                      selectedCollections.length +
+                      selectedTags.length +
+                      (contentTypeFilter !== "all" ? 1 : 0) +
+                      (dateFilter !== "any-time" ? 1 : 0)}
                   </span>
                 )}
               </button>
@@ -461,7 +692,7 @@ export function LibraryBrowser({
               {filtersOpen && (
                 <div
                   id="library-secondary-filters"
-                  className="absolute right-0 top-12 z-30 w-[min(20rem,calc(100vw-2.5rem))] rounded-2xl border border-border bg-surface-elevated p-4 shadow-xl"
+                  className="absolute right-0 top-12 z-30 hidden w-[min(20rem,calc(100vw-2.5rem))] rounded-2xl border border-border bg-surface-elevated p-4 shadow-xl sm:block"
                 >
                   <div className="flex items-center justify-between">
                     <h2 className="text-sm font-semibold text-text">Filters</h2>
@@ -469,6 +700,13 @@ export function LibraryBrowser({
                       type="button"
                       onClick={() => {
                         setSelectedTopics([]);
+                        setSelectedCollections([]);
+                        setSelectedTags([]);
+                        if (filter === "favorites" || filter === "unread") {
+                          setContentTypeFilter("all");
+                        } else {
+                          selectFilter("all");
+                        }
                         setDateFilter("any-time");
                       }}
                       className="text-xs font-medium text-primary hover:underline"
@@ -544,15 +782,208 @@ export function LibraryBrowser({
             </div>
           </div>
 
+          {filtersOpen && (
+            <div
+              className="fixed inset-0 z-[90] flex items-end bg-black/40 sm:hidden"
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) {
+                  setFiltersOpen(false);
+                }
+              }}
+            >
+              <section
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="library-mobile-filters-title"
+                className="flex max-h-[90dvh] w-full flex-col rounded-t-3xl border border-border/70 bg-surface-elevated shadow-xl"
+              >
+                <header className="shrink-0 border-b border-border/60 px-5 pb-4 pt-3">
+                  <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border" />
+                  <h2 id="library-mobile-filters-title" className="text-base font-semibold text-text">
+                    Filters
+                  </h2>
+                </header>
+                <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
+                  <fieldset>
+                    <legend className="text-xs font-semibold text-text">Content type</legend>
+                    <div className="mt-2 grid grid-cols-2 gap-1">
+                      {[
+                        ["all", "All"],
+                        ["articles", "Articles"],
+                        ["videos", "Videos"],
+                        ["repositories", "Repositories"],
+                        ["products", "Products"],
+                      ].map(([value, label]) => (
+                        <label
+                          key={value}
+                          className={`flex min-h-10 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm ${
+                            draftContentType === value
+                              ? "bg-primary/10 font-medium text-primary"
+                              : "text-text hover:bg-background"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="mobile-content-type"
+                            value={value}
+                            checked={draftContentType === value}
+                            onChange={() =>
+                              setDraftContentType(value as LibraryFilter)
+                            }
+                            className="size-4 accent-primary"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <fieldset className="border-t border-border/60 pt-4">
+                    <legend className="text-xs font-semibold text-text">Collections</legend>
+                    <div className="mt-2 grid grid-cols-2 gap-1">
+                      {availableCollections.map((collection) => (
+                        <label
+                          key={collection}
+                          className="flex min-h-10 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm text-text hover:bg-background"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={draftCollections.includes(collection)}
+                            onChange={() =>
+                              setDraftCollections((current) =>
+                                current.includes(collection)
+                                  ? current.filter((item) => item !== collection)
+                                  : [...current, collection],
+                              )
+                            }
+                            className="size-4 accent-primary"
+                          />
+                          <span className="truncate">{collection}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+
+                  <fieldset className="border-t border-border/60 pt-4">
+                    <legend className="text-xs font-semibold text-text">Tags</legend>
+                    {availableTags.length ? (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {availableTags.map((tag) => (
+                          <label
+                            key={tag}
+                            className={`inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-full border px-3 text-xs ${
+                              draftTags.includes(tag)
+                                ? "border-primary/40 bg-primary/10 text-primary"
+                                : "border-border bg-background text-text-muted"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={draftTags.includes(tag)}
+                              onChange={() =>
+                                setDraftTags((current) =>
+                                  current.includes(tag)
+                                    ? current.filter((item) => item !== tag)
+                                    : [...current, tag],
+                                )
+                              }
+                              className="sr-only"
+                            />
+                            #{tag.replace(/^#/, "")}
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-sm text-text-muted">No tags available.</p>
+                    )}
+                  </fieldset>
+
+                  <fieldset className="border-t border-border/60 pt-4">
+                    <legend className="text-xs font-semibold text-text">Date</legend>
+                    <div className="mt-2 grid grid-cols-2 gap-1">
+                      {dateOptions.map(([value, label]) => (
+                        <label
+                          key={value}
+                          className={`flex min-h-10 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm ${
+                            draftDateFilter === value
+                              ? "bg-primary/10 font-medium text-primary"
+                              : "text-text hover:bg-background"
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="mobile-date-filter"
+                            value={value}
+                            checked={draftDateFilter === value}
+                            onChange={() => setDraftDateFilter(value)}
+                            className="size-4 accent-primary"
+                          />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+                  </fieldset>
+                </div>
+                <footer className="flex shrink-0 gap-3 border-t border-border/60 px-5 pt-3 pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+                  <button
+                    type="button"
+                    onClick={resetMobileFilters}
+                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-border px-4 text-sm font-medium text-text"
+                  >
+                    Reset
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyMobileFilters}
+                    className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground"
+                  >
+                    Apply filters
+                  </button>
+                </footer>
+              </section>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3">
-            <p className="text-xs text-text-muted" role="status" aria-live="polite">
-              {filteredBookmarks.length}{" "}
-              {filteredBookmarks.length === 1 ? "item" : "items"}
-            </p>
+            <div className="flex min-w-0 items-center gap-3">
+              <p className="shrink-0 text-xs text-text-muted" role="status" aria-live="polite">
+                {filteredBookmarks.length}{" "}
+                {filteredBookmarks.length === 1 ? "item" : "items"}
+              </p>
+              <label className="hidden min-w-0 items-center gap-2 text-xs text-text-muted sm:flex">
+                <span>Sort</span>
+                <select
+                  aria-label="Sort bookmarks"
+                  value={sort}
+                  onChange={(event) =>
+                    setSort(event.target.value as LibrarySort)
+                  }
+                  className="h-9 min-w-0 rounded-full border border-border/70 bg-surface-elevated px-3 text-xs font-medium text-text outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+                >
+                  {sortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                type="button"
+                aria-label={`Sort bookmarks: ${sortOptions.find((option) => option.value === sort)?.label}`}
+                aria-expanded={sortOpen}
+                onClick={() => setSortOpen(true)}
+                className="inline-flex h-9 items-center gap-2 rounded-full border border-border/70 bg-surface-elevated px-3 text-xs font-medium text-text sm:hidden"
+              >
+                Sort
+                <span className="max-w-24 truncate text-text-muted">
+                  {sortOptions.find((option) => option.value === sort)?.label}
+                </span>
+              </button>
+            </div>
             <div
               role="group"
               aria-label="Bookmark view"
-              className="inline-flex items-center gap-1 rounded-full border border-border/70 bg-surface-elevated p-1"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border/70 bg-surface-elevated p-1"
             >
               <button
                 type="button"
@@ -583,6 +1014,49 @@ export function LibraryBrowser({
                 <span>List</span>
               </button>
             </div>
+
+            {sortOpen && (
+              <div
+                className="fixed inset-0 z-[90] flex items-end bg-black/40 sm:hidden"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) {
+                    setSortOpen(false);
+                  }
+                }}
+              >
+                <section
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="library-mobile-sort-title"
+                  className="w-full rounded-t-3xl border border-border/70 bg-surface-elevated p-5 pb-[calc(env(safe-area-inset-bottom)+1.25rem)] shadow-xl"
+                >
+                  <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" />
+                  <h2 id="library-mobile-sort-title" className="mb-3 text-base font-semibold text-text">Sort by</h2>
+                  <div role="radiogroup" aria-labelledby="library-mobile-sort-title" className="space-y-1">
+                    {sortOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        role="radio"
+                        aria-checked={sort === option.value}
+                        onClick={() => {
+                          setSort(option.value);
+                          setSortOpen(false);
+                        }}
+                        className={`flex min-h-12 w-full items-center justify-between rounded-xl px-3 text-left text-sm ${
+                          sort === option.value
+                            ? "bg-primary/10 font-medium text-primary"
+                            : "text-text hover:bg-background"
+                        }`}
+                      >
+                        {option.label}
+                        {sort === option.value && <Check aria-hidden="true" className="size-4" />}
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         </div>
 
@@ -595,37 +1069,46 @@ export function LibraryBrowser({
               <BookmarkGrid
                 labelledBy="library-results-heading"
                 bookmarks={filteredBookmarks}
-                onFavoriteChange={(id, favorite) =>
-                  setFavoriteOverrides((current) => ({
-                    ...current,
-                    [id]: favorite,
-                  }))
-                }
-                onUnreadChange={(id, unread) =>
-                  setUnreadOverrides((current) => ({
-                    ...current,
-                    [id]: unread,
-                  }))
-                }
               />
             ) : (
               <BookmarkList
                 labelledBy="library-results-heading"
                 bookmarks={filteredBookmarks}
-                onFavoriteChange={(id, favorite) =>
-                  setFavoriteOverrides((current) => ({
-                    ...current,
-                    [id]: favorite,
-                  }))
-                }
-                onUnreadChange={(id, unread) =>
-                  setUnreadOverrides((current) => ({
-                    ...current,
-                    [id]: unread,
-                  }))
-                }
               />
             )}
+          </div>
+        ) : hasNoLibraryItems ? (
+          <div className="mt-5 rounded-3xl border border-dashed border-border bg-surface-elevated px-5 py-14 text-center sm:py-16">
+            <h2 className="text-base font-semibold text-text">
+              Your library is empty
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-text-muted">
+              Save your first link and start building your Internet Memory.
+            </p>
+            <button
+              type="button"
+              onClick={() => requestSmartSave()}
+              className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <span aria-hidden="true">+</span>
+              Save bookmark
+            </button>
+          </div>
+        ) : hasNoFavorites ? (
+          <div className="mt-5 rounded-3xl border border-dashed border-border bg-surface-elevated px-5 py-14 text-center sm:py-16">
+            <h2 className="text-base font-semibold text-text">
+              No favorites yet
+            </h2>
+            <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-text-muted">
+              Save the things you want to find quickly.
+            </p>
+            <button
+              type="button"
+              onClick={() => selectFilter("all")}
+              className="mt-5 inline-flex min-h-10 items-center rounded-full border border-border px-4 text-sm font-medium text-text transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Explore your library
+            </button>
           </div>
         ) : (
           <div className="mt-5 rounded-3xl border border-dashed border-border bg-surface-elevated px-5 py-14 text-center">

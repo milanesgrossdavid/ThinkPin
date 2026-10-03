@@ -3,6 +3,7 @@
 import {
   useMemo,
   useState,
+  useTransition,
   useSyncExternalStore,
   type ChangeEvent,
 } from "react";
@@ -40,11 +41,14 @@ import {
   getServerMembershipsSnapshot,
   loadCollections,
   loadMemberships,
-  setCollectionBookmarkIds,
   subscribeToCollections,
   subscribeToMemberships,
 } from "../../lib/collections";
 import { mockCollections } from "../../lib/mock/collections";
+import { mockSetCollectionBookmarkIds } from "../../lib/mock-actions/collections";
+import { ErrorState } from "../feedback/ErrorState";
+import { useAppToast } from "../feedback/AppToaster";
+import { ActionButton } from "../ui/ActionButton";
 
 type CollectionModel = {
   id: string;
@@ -131,13 +135,18 @@ function createCollectionModel(
       const detail = detailStates.get(bookmark.id);
       return {
         ...bookmark,
+        title: detail?.title ?? bookmark.title,
+        description: detail?.description ?? bookmark.description,
         topic: detail?.collection ?? bookmark.topic,
         tags: detail?.tags ?? bookmark.tags,
+        intent: detail?.intent ?? bookmark.intent,
         favorite: detail?.favorite ?? bookmark.favorite,
         archived: detail?.archived ?? bookmark.archived,
+        unread: detail?.unread ?? bookmark.unread,
+        deleted: detail?.deleted ?? false,
       };
     })
-    .filter((bookmark) => !bookmark.archived);
+    .filter((bookmark) => !bookmark.archived && !bookmark.deleted);
 
   const customCollection = customCollections.find(
     (item) => item.id === collectionId,
@@ -166,6 +175,7 @@ function createCollectionModel(
     id: collectionId,
     name: collectionName,
     description:
+      customCollection?.description ??
       mockCollection?.description ??
       "A thoughtful collection of things you want to remember.",
     allBookmarks,
@@ -228,6 +238,10 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
   const [addQuery, setAddQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [feedback, setFeedback] = useState("");
+  const [saveSucceeded, setSaveSucceeded] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
+  const [isPending, startTransition] = useTransition();
+  const toast = useAppToast();
 
   const availableTypes = useMemo(() => {
     const types = new Set(
@@ -286,6 +300,8 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
     setSelectedIds(new Set(collection?.memberIds ?? []));
     setAddQuery("");
     setFeedback("");
+    setSaveSucceeded(false);
+    setSaveFailed(false);
     setAddDialogOpen(true);
   }
 
@@ -305,15 +321,28 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
     if (!collection) {
       return;
     }
-    try {
-      setCollectionBookmarkIds(collection.id, [...selectedIds]);
-      setAddDialogOpen(false);
-      setFeedback("Collection updated.");
-    } catch {
-      setFeedback(
-        "We couldn't update this collection. Check browser storage permissions.",
+    setFeedback("");
+    setSaveSucceeded(false);
+    setSaveFailed(false);
+    startTransition(async () => {
+      const result = await mockSetCollectionBookmarkIds(
+        collection.id,
+        [...selectedIds],
       );
-    }
+      if (result.success) {
+        setFeedback("Collection updated.");
+        setSaveSucceeded(true);
+        toast.success("Collection updated");
+        window.setTimeout(() => {
+          setAddDialogOpen(false);
+          setSaveSucceeded(false);
+        }, 650);
+        return;
+      }
+      setFeedback(result.error);
+      setSaveFailed(true);
+      toast.error("Couldn't update collection", result.error);
+    });
   }
 
   function onSearchChange(event: ChangeEvent<HTMLInputElement>) {
@@ -323,9 +352,10 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
   if (storageError) {
     return (
       <main className="min-h-svh bg-background px-5 py-8 sm:px-8">
-        <p className="mx-auto max-w-3xl rounded-2xl border border-error/30 bg-error/5 p-5 text-sm text-error">
-          {storageError}
-        </p>
+        <ErrorState
+          description={`We couldn't load this collection. ${storageError}`}
+          onRetry={() => window.location.reload()}
+        />
       </main>
     );
   }
@@ -485,12 +515,16 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
               <h2 className="mt-4 text-base font-semibold text-text">
                 {query || filter !== "all"
                   ? "No bookmarks match"
-                  : "No bookmarks here yet"}
+                  : collection.bookmarks.length === 0
+                    ? "Nothing here yet"
+                    : "No bookmarks here yet"}
               </h2>
               <p className="mx-auto mt-1 max-w-md text-sm leading-6 text-text-muted">
                 {query || filter !== "all"
                   ? "Try a different search or content type."
-                  : "Add things from your library to keep them together here."}
+                  : collection.bookmarks.length === 0
+                    ? "Add bookmarks to this collection."
+                    : "Add things from your library to keep them together here."}
               </p>
               {query || filter !== "all" ? (
                 <button
@@ -502,6 +536,15 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
                   className="mt-4 text-sm font-medium text-primary hover:underline"
                 >
                   Clear search and filters
+                </button>
+              ) : collection.bookmarks.length === 0 ? (
+                <button
+                  type="button"
+                  onClick={openAddDialog}
+                  className="mt-5 inline-flex min-h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  <Plus aria-hidden="true" className="size-4" />
+                  Add bookmarks
                 </button>
               ) : (
                 <button
@@ -631,14 +674,27 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
               <p className="text-xs text-text-muted">
                 {selectedIds.size} selected
               </p>
-              <button
+              <ActionButton
                 type="button"
                 onClick={saveMemberships}
-                className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                status={
+                  isPending
+                    ? "loading"
+                    : saveSucceeded
+                      ? "success"
+                      : saveFailed
+                        ? "error"
+                        : "idle"
+                }
               >
-                <Check aria-hidden="true" className="size-4" />
-                Add selected
-              </button>
+                {isPending
+                  ? "Saving..."
+                  : saveSucceeded
+                    ? "Saved"
+                    : saveFailed
+                      ? "Try again"
+                      : "Add selected"}
+              </ActionButton>
             </div>
           </section>
         </div>

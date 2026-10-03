@@ -4,6 +4,7 @@ import {
   useCallback,
   useMemo,
   useState,
+  useTransition,
   useSyncExternalStore,
   type FormEvent,
 } from "react";
@@ -11,15 +12,17 @@ import Link from "next/link";
 import {
   Archive,
   ArrowUpRight,
-  Check,
-  Heart,
   Share2,
   Sparkles,
 } from "lucide-react";
 import { BookmarkThumbnail } from "./BookmarkThumbnail";
+import { BookmarkFavoriteButton } from "./BookmarkFavoriteButton";
 import { BookmarkDetailHeader } from "./bookmark-detail-header";
 import { mockBookmarks } from "./mock-bookmarks";
 import type { Bookmark } from "./types";
+import { useBookmarkActions } from "./bookmark-interactions-provider";
+import { useAppToast } from "../feedback/AppToaster";
+import { ActionButton } from "../ui/ActionButton";
 import {
   getBookmarkDetailSnapshot,
   getServerBookmarkDetailSnapshot,
@@ -111,30 +114,33 @@ function mockReason(bookmark: Bookmark) {
 
 function CardLink({ bookmark }: { bookmark: Bookmark }) {
   return (
-    <Link
-      href={`/library/${encodeURIComponent(bookmark.id)}`}
-      className="group flex min-w-0 items-center gap-3 rounded-2xl border border-border/60 bg-background p-3 transition-colors hover:border-primary/30 hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-    >
-      <BookmarkThumbnail
-        icon={bookmark.icon}
-        topic={bookmark.topic}
-        artwork={bookmark.artwork}
-        thumbnailUrl={bookmark.thumbnailUrl}
-        variant="list"
-      />
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-semibold text-text group-hover:text-primary">
-          {bookmark.title}
+    <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-border/60 bg-background p-2 transition-colors hover:border-primary/30 hover:bg-surface sm:gap-3 sm:p-3">
+      <Link
+        href={`/library/${encodeURIComponent(bookmark.id)}`}
+        className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        <BookmarkThumbnail
+          icon={bookmark.icon}
+          topic={bookmark.topic}
+          artwork={bookmark.artwork}
+          thumbnailUrl={bookmark.thumbnailUrl}
+          variant="list"
+        />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-sm font-semibold text-text group-hover:text-primary">
+            {bookmark.title}
+          </span>
+          <span className="mt-1 block truncate text-xs text-text-muted">
+            {bookmark.domain}
+          </span>
         </span>
-        <span className="mt-1 block truncate text-xs text-text-muted">
-          {bookmark.domain}
-        </span>
-      </span>
-      <ArrowUpRight
-        aria-hidden="true"
-        className="size-4 shrink-0 text-text-muted transition-colors group-hover:text-primary"
-      />
-    </Link>
+        <ArrowUpRight
+          aria-hidden="true"
+          className="size-4 shrink-0 text-text-muted transition-colors group-hover:text-primary"
+        />
+      </Link>
+      <BookmarkFavoriteButton bookmark={bookmark} />
+    </div>
   );
 }
 
@@ -163,6 +169,8 @@ export function BookmarkDetailView({
     getCollectionsSnapshot,
     getServerCollectionsSnapshot,
   );
+  const { setArchived, updateDetails } = useBookmarkActions();
+  const toast = useAppToast();
   const detailState = useMemo(
     () => {
       try {
@@ -190,19 +198,34 @@ export function BookmarkDetailView({
     }
   }, [collectionsSnapshot]);
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
   const [showCollectionOptions, setShowCollectionOptions] = useState(false);
   const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const [noteSaveSucceeded, setNoteSaveSucceeded] = useState(false);
+  const [noteSaveFailed, setNoteSaveFailed] = useState(false);
+  const [archivedOverride, setArchivedOverride] = useState<boolean | null>(null);
+  const [isInteractionPending, startInteraction] = useTransition();
 
-  const favorite = detailState.favorite ?? bookmark.favorite ?? false;
+  const archived =
+    archivedOverride ?? detailState.archived ?? bookmark.archived ?? false;
+  const unread = detailState.unread ?? bookmark.unread ?? false;
+  const activeTitle = detailState.title ?? bookmark.title;
+  const activeDescription = detailState.description ?? bookmark.description;
   const activeCollection = detailState.collection ?? collection;
   const tags = detailState.tags ?? bookmark.tags ?? [bookmark.topic, bookmark.subtopic];
   const intent = detailState.intent ?? bookmark.intent;
   const notes = notesDraft ?? detailState.notes ?? "";
   const savedDate = formatSavedDate(bookmark);
-  const summary = mockSummary(bookmark);
+  const summary = mockSummary({
+    ...bookmark,
+    title: activeTitle,
+    description: activeDescription,
+    topic: activeCollection,
+    intent,
+  });
   const whySaved = isMock
     ? mockReason({ ...bookmark, intent, topic: activeCollection })
     : intent
@@ -253,34 +276,37 @@ export function BookmarkDetailView({
         ...(activity ? { activity: activityEntry } : {}),
       });
       setFeedback("");
+      if (activity) {
+        toast.success(activity);
+      }
     } catch {
       setFeedback("Couldn't save that update. Check browser storage permissions.");
+      toast.error(
+        "Couldn't save your changes",
+        "Check browser storage permissions and try again.",
+      );
     }
   }
 
-  function toggleFavorite() {
-    const nextFavorite = !favorite;
-    updateState(
-      { favorite: nextFavorite },
-      nextFavorite ? "Added to favorites" : "Removed from favorites",
-    );
-  }
-
   function toggleArchive() {
-    const archived = !(detailState.archived ?? false);
-    updateState(
-      { archived },
-      archived ? "Archived" : "Restored from archive",
-    );
-    setFeedback(archived ? "Archived in this browser." : "Restored from archive.");
+    const nextArchived = !archived;
+    setArchivedOverride(nextArchived);
+    startInteraction(async () => {
+      try {
+        await setArchived(bookmark.id, nextArchived);
+      } finally {
+        setArchivedOverride(null);
+      }
+    });
   }
 
   async function shareBookmark() {
-    const shareData = { title: bookmark.title, url: bookmark.url };
+    const shareData = { title: activeTitle, url: bookmark.url };
     if (navigator.share) {
       try {
         await navigator.share(shareData);
         setFeedback("Bookmark shared.");
+        toast.success("Bookmark shared");
         return;
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") {
@@ -292,19 +318,34 @@ export function BookmarkDetailView({
     try {
       await navigator.clipboard.writeText(bookmark.url);
       setFeedback("Link copied to share.");
+      toast.success("Link copied");
     } catch {
       setFeedback("Couldn't share or copy the link in this browser.");
+      toast.error(
+        "Couldn't share this bookmark",
+        "Sharing and clipboard access aren't available in this browser.",
+      );
     }
   }
 
   function saveNotes() {
-    const nextNotes = notesDraft ?? detailState.notes ?? "";
-    updateState(
-      { notes: nextNotes },
-      nextNotes.trim() ? "Updated notes" : "Cleared notes",
-    );
-    setNotesDraft(null);
-    setFeedback("Notes saved.");
+    const nextNotes = notesDraft ?? "";
+    setNoteSaveSucceeded(false);
+    setNoteSaveFailed(false);
+    startInteraction(async () => {
+      const succeeded = await updateDetails(bookmark.id, { notes: nextNotes });
+      if (succeeded) {
+        setNoteSaveSucceeded(true);
+        setFeedback(nextNotes.trim() ? "Note added." : "Note removed.");
+        window.setTimeout(() => {
+          setNotesDraft(null);
+          setIsEditingNotes(false);
+          setNoteSaveSucceeded(false);
+        }, 650);
+      } else {
+        setNoteSaveFailed(true);
+      }
+    });
   }
 
   function saveTag(event: FormEvent<HTMLFormElement>) {
@@ -337,7 +378,7 @@ export function BookmarkDetailView({
     <main className="min-h-svh bg-background px-5 py-6 sm:px-8 sm:py-10">
       <div className="mx-auto max-w-3xl">
         <BookmarkDetailHeader
-          title={bookmark.title}
+          title={activeTitle}
           collection={activeCollection}
           url={bookmark.url}
         />
@@ -358,7 +399,7 @@ export function BookmarkDetailView({
               <span className="text-xs font-medium text-text-muted">
                 {publisherForDomain(bookmark.domain)}
               </span>
-              {bookmark.unread && (
+              {unread && (
                 <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-primary">
                   <span className="size-1.5 rounded-full bg-primary" />
                   Unread
@@ -367,7 +408,7 @@ export function BookmarkDetailView({
             </div>
 
             <h1 className="mt-3 wrap-break-word text-2xl font-semibold leading-tight tracking-[-0.04em] text-text sm:text-4xl">
-              {bookmark.title}
+              {activeTitle}
             </h1>
             <a
               href={bookmark.url}
@@ -379,7 +420,7 @@ export function BookmarkDetailView({
               <ArrowUpRight aria-hidden="true" className="size-4 shrink-0" />
             </a>
             <p className="mt-4 max-w-2xl text-sm leading-7 text-text-muted sm:text-base">
-              {bookmark.description || "No description available."}
+              {activeDescription || "No description available."}
             </p>
 
             <div className="mt-6 flex flex-col gap-2 border-t border-border/60 pt-5 sm:flex-row sm:flex-wrap sm:items-center">
@@ -393,30 +434,17 @@ export function BookmarkDetailView({
                 <ArrowUpRight aria-hidden="true" className="size-4" />
               </a>
               <div className="flex flex-wrap gap-2">
+                <BookmarkFavoriteButton bookmark={bookmark} variant="pill" />
                 <button
                   type="button"
-                  aria-pressed={favorite}
-                  onClick={toggleFavorite}
-                  className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-full border px-4 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                    favorite
-                      ? "border-rose-300/60 bg-rose-500/10 text-rose-500"
-                      : "border-border text-text-muted hover:bg-background hover:text-rose-500"
-                  }`}
-                >
-                  <Heart
-                    aria-hidden="true"
-                    className={`size-4 ${favorite ? "fill-current" : ""}`}
-                  />
-                  {favorite ? "Favorited" : "Favorite"}
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={detailState.archived ?? false}
+                  aria-pressed={archived}
+                  aria-busy={isInteractionPending}
+                  disabled={isInteractionPending}
                   onClick={toggleArchive}
                   className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-border px-4 text-xs font-medium text-text-muted transition-colors hover:bg-background hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 >
                   <Archive aria-hidden="true" className="size-4" />
-                  {detailState.archived ? "Restore" : "Archive"}
+                  {archived ? "Restore" : "Archive"}
                 </button>
                 <button
                   type="button"
@@ -442,7 +470,7 @@ export function BookmarkDetailView({
           <section className="py-5 sm:py-6">
             <h2 className="text-sm font-semibold text-text">Description</h2>
             <p className="mt-2 text-sm leading-7 text-text-muted">
-              {bookmark.description || "No description available."}
+              {activeDescription || "No description available."}
             </p>
           </section>
 
@@ -473,6 +501,9 @@ export function BookmarkDetailView({
               </Link>
             </div>
             <div className="mt-3 flex flex-wrap gap-2">
+              {tags.length === 0 && (
+                <p className="text-sm text-text-muted">No tags yet</p>
+              )}
               {tags.map((tag) => (
                 <Link
                   key={tag}
@@ -621,31 +652,90 @@ export function BookmarkDetailView({
                 Add your own context to this saved item.
               </p>
             </div>
-            {detailState.notes && notesDraft === null && (
+            {detailState.notes && !isEditingNotes && (
               <span className="text-[11px] text-text-muted">Saved locally</span>
             )}
           </div>
-          <textarea
-            value={notes}
-            onChange={(event) => setNotesDraft(event.target.value)}
-            placeholder="Add a note..."
-            rows={3}
-            className="mt-4 w-full resize-y rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm leading-6 text-text outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/80 focus:border-primary focus:ring-4 focus:ring-primary/10"
-          />
-          <div className="mt-3 flex items-center justify-between gap-3">
-            <p className="text-[11px] text-text-muted">
-              Notes are stored in this browser.
-            </p>
-            <button
-              type="button"
-              onClick={saveNotes}
-              disabled={notesDraft === null}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              <Check aria-hidden="true" className="size-3.5" />
-              Save note
-            </button>
-          </div>
+          {isEditingNotes ? (
+            <>
+              <textarea
+                autoFocus
+                value={notes}
+                onChange={(event) => {
+                  setNotesDraft(event.target.value);
+                  setNoteSaveFailed(false);
+                  setNoteSaveSucceeded(false);
+                }}
+                placeholder="Add a note..."
+                rows={4}
+                className="mt-4 w-full resize-y rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm leading-6 text-text outline-none transition-[border-color,box-shadow] placeholder:text-text-muted/80 focus:border-primary focus:ring-4 focus:ring-primary/10"
+              />
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[11px] text-text-muted">
+                  Notes are stored in this browser.
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={isInteractionPending}
+                    onClick={() => {
+                      setNotesDraft(null);
+                      setIsEditingNotes(false);
+                      setNoteSaveFailed(false);
+                      setNoteSaveSucceeded(false);
+                    }}
+                    className="inline-flex min-h-9 items-center rounded-full border border-border px-4 text-xs font-medium text-text-muted transition-colors hover:bg-background disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+                  <ActionButton
+                    type="button"
+                    onClick={saveNotes}
+                    status={
+                      isInteractionPending
+                        ? "loading"
+                        : noteSaveSucceeded
+                          ? "success"
+                          : noteSaveFailed
+                            ? "error"
+                            : "idle"
+                    }
+                    className="min-h-9 px-4 text-xs"
+                  >
+                    {isInteractionPending
+                      ? "Saving..."
+                      : noteSaveSucceeded
+                        ? "Saved"
+                        : noteSaveFailed
+                          ? "Try again"
+                          : "Save note"}
+                  </ActionButton>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="mt-4">
+              {notes.trim() ? (
+                <p className="whitespace-pre-wrap rounded-2xl border border-border/70 bg-background px-4 py-3 text-sm leading-6 text-text">
+                  {notes}
+                </p>
+              ) : (
+                <p className="text-sm text-text-muted">
+                  You haven&apos;t added a note yet.
+                </p>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setNotesDraft(notes);
+                  setIsEditingNotes(true);
+                }}
+                className="mt-3 inline-flex min-h-9 items-center rounded-full bg-primary px-4 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              >
+                {notes.trim() ? "Edit note" : "Add a note"}
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="mt-8 pb-8" aria-labelledby="bookmark-activity-title">

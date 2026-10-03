@@ -7,6 +7,7 @@ export type SavedCollection = {
   id: string;
   name: string;
   createdAt: string;
+  description?: string;
 };
 
 export type CollectionMemberships = Record<string, string[]>;
@@ -147,7 +148,8 @@ export function loadCollections(snapshot: string | null): SavedCollection[] {
         "name" in item &&
         typeof item.name === "string" &&
         "createdAt" in item &&
-        typeof item.createdAt === "string",
+        typeof item.createdAt === "string" &&
+        (!("description" in item) || typeof item.description === "string"),
     )
   ) {
     throw new Error("Saved collections data is invalid.");
@@ -161,7 +163,11 @@ function saveCollections(collections: SavedCollection[]) {
   window.dispatchEvent(new Event(collectionsChangedEvent));
 }
 
-export function createCollection(name: string, existingNames: string[]) {
+export function createCollection(
+  name: string,
+  existingNames: string[],
+  description = "",
+) {
   const normalizedName = name.trim().replace(/\s+/g, " ");
   if (!normalizedName) {
     throw new Error("Enter a name for this collection.");
@@ -180,6 +186,7 @@ export function createCollection(name: string, existingNames: string[]) {
     id: window.crypto.randomUUID(),
     name: normalizedName,
     createdAt: new Date().toISOString(),
+    description: description.trim().replace(/\s+/g, " "),
   };
   saveCollections([...collections, collection]);
   return collection;

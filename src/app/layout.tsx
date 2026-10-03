@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 import { CommandMenu } from "../components/search/command-menu";
+import { BookmarkInteractionsProvider } from "../components/bookmarks/bookmark-interactions-provider";
+import { AppToaster } from "../components/feedback/AppToaster";
+import { SmartSaveDialog } from "../components/bookmarks/smart-save-dialog";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -27,8 +30,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       data-scroll-behavior="smooth"
     >
       <body className="min-h-full">
-        {children}
-        <CommandMenu />
+        <AppToaster>
+          <BookmarkInteractionsProvider>
+            {children}
+            <CommandMenu />
+            <SmartSaveDialog />
+          </BookmarkInteractionsProvider>
+        </AppToaster>
       </body>
     </html>
   );

@@ -6,8 +6,6 @@ type BookmarkListProps = {
   labelledBy?: string;
   id?: string;
   variant?: Exclude<BookmarkView, "grid">;
-  onFavoriteChange?: (bookmarkId: string, favorite: boolean) => void;
-  onUnreadChange?: (bookmarkId: string, unread: boolean) => void;
 };
 
 export function BookmarkList({
@@ -15,8 +13,6 @@ export function BookmarkList({
   labelledBy,
   id,
   variant = "list",
-  onFavoriteChange,
-  onUnreadChange,
 }: BookmarkListProps) {
   return (
     <ul
@@ -31,8 +27,6 @@ export function BookmarkList({
           <BookmarkCard
             bookmark={bookmark}
             variant={variant}
-            onFavoriteChange={onFavoriteChange}
-            onUnreadChange={onUnreadChange}
           />
         </li>
       ))}

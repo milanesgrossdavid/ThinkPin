@@ -1,14 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { BookmarkGrid } from "../bookmarks/BookmarkGrid";
 import { mockBookmarks } from "../bookmarks/mock-bookmarks";
-
-const savedItems = mockBookmarks.slice(0, 6);
+import {
+  getBookmarkDetailsSnapshot,
+  getServerBookmarkDetailsSnapshot,
+  readBookmarkDetailState,
+  subscribeToBookmarkDetails,
+} from "../../lib/bookmarks";
 
 export function RecentlySaved() {
+  const detailsSnapshot = useSyncExternalStore(
+    subscribeToBookmarkDetails,
+    getBookmarkDetailsSnapshot,
+    getServerBookmarkDetailsSnapshot,
+  );
   const [showAll, setShowAll] = useState(false);
+  const savedItems = useMemo(() => {
+    try {
+      const entries: unknown = JSON.parse(detailsSnapshot || "[]");
+      if (
+        !Array.isArray(entries) ||
+        !entries.every(
+          (entry) =>
+            Array.isArray(entry) &&
+            entry.length === 2 &&
+            typeof entry[0] === "string" &&
+            typeof entry[1] === "string",
+        )
+      ) {
+        return mockBookmarks.slice(0, 6);
+      }
+      const details = new Map(
+        entries.map(([id, value]: [string, string]) => [
+          id,
+          readBookmarkDetailState(value),
+        ]),
+      );
+      return mockBookmarks
+        .map((bookmark) => {
+          const detail = details.get(bookmark.id);
+          return {
+            ...bookmark,
+            title: detail?.title ?? bookmark.title,
+            topic: detail?.collection ?? bookmark.topic,
+            tags: detail?.tags ?? bookmark.tags,
+            favorite: detail?.favorite ?? bookmark.favorite,
+            archived: detail?.archived ?? bookmark.archived,
+            deleted: detail?.deleted ?? false,
+          };
+        })
+        .filter((bookmark) => !bookmark.archived && !bookmark.deleted)
+        .slice(0, 6);
+    } catch {
+      return mockBookmarks.slice(0, 6);
+    }
+  }, [detailsSnapshot]);
   const visibleItems = showAll ? savedItems : savedItems.slice(0, 3);
 
   return (

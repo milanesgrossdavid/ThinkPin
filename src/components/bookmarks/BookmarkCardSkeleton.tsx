@@ -1,0 +1,1 @@
+export { BookmarkSkeleton as BookmarkCardSkeleton } from "../skeletons/app-skeletons";

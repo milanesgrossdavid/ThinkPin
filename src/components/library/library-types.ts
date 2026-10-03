@@ -1,4 +1,6 @@
-export const libraryFilters = [
+import type { BookmarkFilter } from "@/types";
+
+export const libraryFilters: BookmarkFilter[] = [
   "all",
   "favorites",
   "unread",
@@ -6,9 +8,9 @@ export const libraryFilters = [
   "articles",
   "repositories",
   "products",
-] as const;
+];
 
-export type LibraryFilter = (typeof libraryFilters)[number];
+export type LibraryFilter = BookmarkFilter;
 
 export function isLibraryFilter(value: string | undefined): value is LibraryFilter {
   return libraryFilters.some((filter) => filter === value);

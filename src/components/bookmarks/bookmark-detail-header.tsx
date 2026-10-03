@@ -9,6 +9,7 @@ import {
   ExternalLink,
   MoreHorizontal,
 } from "lucide-react";
+import { useAppToast } from "../feedback/AppToaster";
 
 type BookmarkDetailHeaderProps = {
   title: string;
@@ -24,6 +25,7 @@ export function BookmarkDetailHeader({
   const menuRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [feedback, setFeedback] = useState("");
+  const toast = useAppToast();
 
   useEffect(() => {
     if (!menuOpen) {
@@ -57,14 +59,20 @@ export function BookmarkDetailHeader({
     setMenuOpen(false);
     if (!url) {
       setFeedback("There is no link to copy.");
+      toast.error("No link to copy");
       return;
     }
 
     try {
       await navigator.clipboard.writeText(url);
       setFeedback("Link copied.");
+      toast.success("Link copied");
     } catch {
       setFeedback("Couldn't copy the link. Open the bookmark to copy it.");
+      toast.error(
+        "Couldn't copy the link",
+        "Open the bookmark and try copying the original URL.",
+      );
     }
   }
 
@@ -126,10 +134,22 @@ export function BookmarkDetailHeader({
 
         {menuOpen && (
           <div
+            className="fixed inset-0 z-[90] bg-black/40 sm:contents"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                setMenuOpen(false);
+              }
+            }}
+          >
+          <div
             role="menu"
             aria-label="Bookmark actions"
-            className="absolute right-0 top-12 z-30 w-48 rounded-2xl border border-border bg-surface-elevated p-1.5 shadow-xl"
+            className="fixed inset-x-0 bottom-0 z-[91] rounded-t-3xl border border-border bg-surface-elevated p-2 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] shadow-xl sm:absolute sm:inset-auto sm:right-0 sm:top-12 sm:z-30 sm:w-48 sm:rounded-2xl sm:p-1.5 sm:pb-1.5"
           >
+            <div className="mx-auto mb-2 mt-1 h-1 w-10 rounded-full bg-border sm:hidden" />
+            <p className="px-3 pb-2 pt-1 text-sm font-semibold text-text sm:hidden">
+              Actions
+            </p>
             {url && (
               <a
                 role="menuitem"
@@ -155,6 +175,7 @@ export function BookmarkDetailHeader({
               <Copy aria-hidden="true" className="size-4 text-text-muted" />
               Copy link
             </button>
+          </div>
           </div>
         )}
       </div>
