@@ -36,14 +36,15 @@ export type SavedBookmark = {
   description: string;
   collection: string;
   tags: string[];
+  canonicalUrl?: string | null;
+  imageUrl?: string | null;
+  faviconUrl?: string | null;
+  contentStatus?: "pending" | "processing" | "ready" | "failed";
+  notes?: string;
   intent?: BookmarkIntent;
   favorite?: boolean;
   archived?: boolean;
-};
-
-export type BookmarkSuggestions = {
-  collection: string;
-  tags: string[];
+  unread?: boolean;
 };
 
 type StoredBookmark = Record<string, unknown> & { url: string };
@@ -280,38 +281,6 @@ export function normalizeBookmarkUrl(value: string) {
   return url;
 }
 
-export function suggestBookmarkOrganization(domain: string): BookmarkSuggestions {
-  const hostname = domain.toLowerCase();
-
-  if (hostname.includes("github.com")) {
-    return {
-      collection: "Development",
-      tags: ["Development", "Open source", "Reference"],
-    };
-  }
-  if (hostname.includes("youtube.com") || hostname.includes("youtu.be")) {
-    return {
-      collection: "Learning",
-      tags: ["Video", "Learning", "Watch later"],
-    };
-  }
-  if (
-    hostname.includes("amazon.") ||
-    hostname.includes("etsy.") ||
-    hostname.includes("shop")
-  ) {
-    return {
-      collection: "Things to buy",
-      tags: ["Shopping", "Product", "Compare"],
-    };
-  }
-
-  return {
-    collection: "Read later",
-    tags: [hostname.split(".")[0], "Read later", "Reference"],
-  };
-}
-
 function readBookmarks(
   saved: string | null = window.localStorage.getItem(bookmarksStorageKey),
 ): StoredBookmark[] {
@@ -394,11 +363,31 @@ export function loadSavedBookmarks(
       tags: Array.isArray(bookmark.tags)
         ? bookmark.tags.filter((tag): tag is string => typeof tag === "string")
         : [],
+      ...(typeof bookmark.canonicalUrl === "string" ||
+      bookmark.canonicalUrl === null
+        ? { canonicalUrl: bookmark.canonicalUrl }
+        : {}),
+      ...(typeof bookmark.imageUrl === "string" || bookmark.imageUrl === null
+        ? { imageUrl: bookmark.imageUrl }
+        : {}),
+      ...(typeof bookmark.faviconUrl === "string" ||
+      bookmark.faviconUrl === null
+        ? { faviconUrl: bookmark.faviconUrl }
+        : {}),
+      ...(bookmark.contentStatus === "pending" ||
+      bookmark.contentStatus === "processing" ||
+      bookmark.contentStatus === "ready" ||
+      bookmark.contentStatus === "failed"
+        ? { contentStatus: bookmark.contentStatus }
+        : {}),
       ...(typeof bookmark.favorite === "boolean"
         ? { favorite: bookmark.favorite }
         : {}),
       ...(typeof bookmark.archived === "boolean"
         ? { archived: bookmark.archived }
+        : {}),
+      ...(typeof bookmark.unread === "boolean"
+        ? { unread: bookmark.unread }
         : {}),
       ...(isBookmarkIntent(bookmark.intent)
         ? { intent: bookmark.intent }
@@ -407,67 +396,139 @@ export function loadSavedBookmarks(
   });
 }
 
-export function saveBookmarkImmediately(
-  value: string,
-  suggestions?: BookmarkSuggestions,
-) {
-  const url = normalizeBookmarkUrl(value);
-  const normalizedUrl = url.toString();
+export function cacheServerBookmark(
+  bookmark: {
+    id: string;
+    url: string;
+    domain: string;
+    title: string;
+    description: string | null;
+    canonicalUrl?: string | null;
+    imageUrl?: string | null;
+    faviconUrl?: string | null;
+    contentStatus?: SavedBookmark["contentStatus"];
+    createdAt?: string;
+  },
+): SavedBookmark {
   const bookmarks = readBookmarks();
-  const existingIndex = bookmarks.findIndex((bookmark) => {
-    try {
-      return normalizeBookmarkUrl(bookmark.url).toString() === normalizedUrl;
-    } catch {
-      return false;
-    }
-  });
-
-  if (existingIndex !== -1) {
-    const existing = bookmarks[existingIndex];
-    const saved: SavedBookmark = {
-      id:
-        typeof existing.id === "string" ? existing.id : window.crypto.randomUUID(),
-      url: normalizedUrl,
-      domain: url.hostname.replace(/^www\./, ""),
-      savedAt:
-        typeof existing.savedAt === "string"
-          ? existing.savedAt
-          : new Date().toISOString(),
-      title: typeof existing.title === "string" ? existing.title : titleFromUrl(url),
-      description:
-        typeof existing.description === "string" ? existing.description : "",
-      collection:
-        typeof existing.collection === "string" ? existing.collection : "Unsorted",
-      tags: Array.isArray(existing.tags)
-        ? existing.tags.filter((tag): tag is string => typeof tag === "string")
-        : [],
-      ...(isBookmarkIntent(existing.intent) ? { intent: existing.intent } : {}),
-    };
-    bookmarks[existingIndex] = { ...existing, ...saved };
-    writeBookmarks(bookmarks);
-    return { bookmark: saved, alreadySaved: true };
-  }
-
-  const bookmark: SavedBookmark = {
-    id: window.crypto.randomUUID(),
-    url: normalizedUrl,
-    domain: url.hostname.replace(/^www\./, ""),
-    savedAt: new Date().toISOString(),
-    title: titleFromUrl(url),
-    description: "",
-    collection: suggestions?.collection ?? "Unsorted",
-    tags: suggestions?.tags ?? [],
+  const existingIndex = bookmarks.findIndex(
+    (item) => item.id === bookmark.id || item.url === bookmark.url,
+  );
+  const existing =
+    existingIndex === -1 ? undefined : loadSavedBookmarks(
+      JSON.stringify([bookmarks[existingIndex]]),
+    )[0];
+  const saved: SavedBookmark = {
+    id: bookmark.id,
+    url: bookmark.url,
+    domain: bookmark.domain,
+    savedAt: existing?.savedAt ?? bookmark.createdAt ?? new Date().toISOString(),
+    title: bookmark.title || bookmark.domain,
+    description: bookmark.description ?? "",
+    collection: existing?.collection ?? "Unsorted",
+    tags: existing?.tags ?? [],
+    ...(bookmark.canonicalUrl !== undefined
+      ? { canonicalUrl: bookmark.canonicalUrl }
+      : existing?.canonicalUrl !== undefined
+        ? { canonicalUrl: existing.canonicalUrl }
+        : {}),
+    ...(bookmark.imageUrl !== undefined
+      ? { imageUrl: bookmark.imageUrl }
+      : existing?.imageUrl !== undefined
+        ? { imageUrl: existing.imageUrl }
+        : {}),
+    ...(bookmark.faviconUrl !== undefined
+      ? { faviconUrl: bookmark.faviconUrl }
+      : existing?.faviconUrl !== undefined
+        ? { faviconUrl: existing.faviconUrl }
+        : {}),
+    ...(bookmark.contentStatus
+      ? { contentStatus: bookmark.contentStatus }
+      : existing?.contentStatus
+        ? { contentStatus: existing.contentStatus }
+        : {}),
+    ...(existing?.favorite !== undefined ? { favorite: existing.favorite } : {}),
+    ...(existing?.archived !== undefined ? { archived: existing.archived } : {}),
+    ...(existing?.unread !== undefined
+      ? { unread: existing.unread }
+      : { unread: true }),
+    ...(existing?.intent ? { intent: existing.intent } : {}),
   };
-  bookmarks.unshift(bookmark);
+
+  if (existingIndex === -1) {
+    bookmarks.unshift(saved);
+  } else {
+    bookmarks[existingIndex] = { ...bookmarks[existingIndex], ...saved };
+  }
+  writeBookmarks(bookmarks);
+  return saved;
+}
+
+export function replaceBookmarksFromDatabase(bookmarks: SavedBookmark[]) {
+  writeBookmarks(
+    bookmarks.map((bookmark) => ({
+      ...bookmark,
+      collection: bookmark.collection || "Unsorted",
+      tags: bookmark.tags ?? [],
+    })),
+  );
+
+  for (const bookmark of bookmarks) {
+    const key = bookmarkDetailStorageKey(bookmark.id);
+    window.localStorage.setItem(
+      key,
+      JSON.stringify({
+        title: bookmark.title,
+        description: bookmark.description,
+        favorite: bookmark.favorite ?? false,
+        unread: bookmark.unread ?? false,
+        archived: bookmark.archived ?? false,
+        collection: bookmark.collection,
+        tags: bookmark.tags,
+        ...(bookmark.intent ? { intent: bookmark.intent } : {}),
+        ...(bookmark.notes !== undefined ? { notes: bookmark.notes } : {}),
+      }),
+    );
+  }
+  window.dispatchEvent(new Event(bookmarkDetailChangedEvent));
+}
+
+export function removeSavedBookmark(bookmarkId: string) {
+  const bookmarks = readBookmarks().filter(
+    (bookmark) => bookmark.id !== bookmarkId,
+  );
   writeBookmarks(bookmarks);
 
-  return { bookmark, alreadySaved: false };
+  const prefix = `${bookmarksStorageKey}:detail:`;
+  for (let index = window.localStorage.length - 1; index >= 0; index -= 1) {
+    const key = window.localStorage.key(index);
+    if (key?.startsWith(prefix)) {
+      try {
+        const storedId = decodeURIComponent(key.slice(prefix.length));
+        if (storedId === bookmarkId) {
+          window.localStorage.removeItem(key);
+        }
+      } catch {
+        window.localStorage.removeItem(key);
+      }
+    }
+  }
+  window.dispatchEvent(new Event(bookmarkDetailChangedEvent));
 }
 
 export function updateSavedBookmark(
   bookmarkId: string,
   updates: Partial<
-    Pick<SavedBookmark, "title" | "description" | "collection" | "tags" | "intent">
+    Pick<
+      SavedBookmark,
+      | "title"
+      | "description"
+      | "collection"
+      | "tags"
+      | "intent"
+      | "favorite"
+      | "archived"
+    >
   >,
 ) {
   const bookmarks = readBookmarks();

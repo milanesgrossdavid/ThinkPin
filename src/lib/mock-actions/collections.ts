@@ -4,7 +4,7 @@ import {
   setCollectionBookmarkIds,
   type SavedCollection,
 } from "../collections";
-import type { BookmarkActionResult } from "./bookmarks";
+import type { BookmarkActionResult } from "./result";
 
 function simulateRequest() {
   return new Promise<void>((resolve) => window.setTimeout(resolve, 400));

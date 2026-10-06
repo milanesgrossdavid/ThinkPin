@@ -7,8 +7,6 @@ import {
 } from "../../../components/library/library-types";
 import { requireAuth } from "../../../lib/supabase/require-auth";
 
-const libraryItemCount = 1284;
-
 export const metadata: Metadata = {
   title: "Your Library | ThinkPin",
   description: "Everything you've saved in your ThinkPin library.",
@@ -30,7 +28,7 @@ export default async function BookmarksPage({
 
   return (
     <main className="min-h-svh bg-background">
-      <LibraryHeader itemCount={libraryItemCount} />
+      <LibraryHeader />
       <LibraryBrowser
         initialFilter={initialFilter}
         initialTag={typeof requestedTag === "string" ? requestedTag : ""}

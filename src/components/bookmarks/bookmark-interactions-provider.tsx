@@ -16,7 +16,7 @@ import {
   subscribeToBookmarkDetail,
 } from "../../lib/bookmarks";
 import {
-  createLocalBookmarkActions,
+  createBookmarkActions,
   type BookmarkActions,
 } from "../../lib/bookmark-actions";
 
@@ -30,7 +30,7 @@ export function BookmarkInteractionsProvider({
   const toast = useAppToast();
   const actions = useMemo(
     () =>
-      createLocalBookmarkActions({
+      createBookmarkActions({
         success: toast.success,
         error: toast.error,
       }),

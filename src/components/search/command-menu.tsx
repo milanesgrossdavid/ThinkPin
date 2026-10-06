@@ -32,7 +32,7 @@ import {
   subscribeToBookmarkDetails,
   subscribeToBookmarks,
 } from "../../lib/bookmarks";
-import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks";
+import type { LibraryBookmark } from "../bookmarks/types";
 import { searchBookmarks } from "../../lib/search";
 import { requestSmartSave } from "../../lib/save-dialog";
 
@@ -149,7 +149,7 @@ function savedBookmarks(snapshot: string | null): LibraryBookmark[] {
     artwork: "from-primary/15 via-sky-500/10 to-transparent",
     contentType: "article",
     favorite: bookmark.favorite ?? false,
-    unread: true,
+    unread: bookmark.unread ?? false,
     savedDate: bookmark.savedAt.slice(0, 10),
     searchTerms: [bookmark.collection, bookmark.intent ?? "", bookmark.url],
   }));
@@ -190,7 +190,7 @@ export function CommandMenu() {
   }, [bookmarksSnapshot]);
   const availableBookmarks = useMemo(
     () => {
-      const bookmarks = [...localBookmarks, ...mockBookmarks];
+      const bookmarks = localBookmarks;
       if (!detailsSnapshot) {
         return bookmarks;
       }

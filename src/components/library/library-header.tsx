@@ -1,18 +1,39 @@
 "use client";
 
+import { useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Folder, Plus } from "lucide-react";
 import { requestSmartSave } from "../../lib/save-dialog";
+import {
+  getBookmarksSnapshot,
+  getServerBookmarksSnapshot,
+  loadSavedBookmarks,
+  subscribeToBookmarks,
+} from "../../lib/bookmarks";
 
 type LibraryHeaderProps = {
-  itemCount: number;
   title?: string;
 };
 
 export function LibraryHeader({
-  itemCount,
   title = "Your Library",
 }: LibraryHeaderProps) {
+  const bookmarksSnapshot = useSyncExternalStore(
+    subscribeToBookmarks,
+    getBookmarksSnapshot,
+    getServerBookmarksSnapshot,
+  );
+  const itemCount = useMemo(() => {
+    try {
+      const bookmarks = loadSavedBookmarks(bookmarksSnapshot);
+      return title === "Favorites"
+        ? bookmarks.filter((bookmark) => bookmark.favorite).length
+        : bookmarks.length;
+    } catch {
+      return 0;
+    }
+  }, [bookmarksSnapshot, title]);
+
   return (
     <header className="border-b border-border/60 bg-background px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
       <div className="mx-auto flex max-w-container-xl items-center justify-between gap-4">

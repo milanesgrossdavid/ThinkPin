@@ -1,17 +1,26 @@
 "use client";
 
 import { useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Globe2 } from "lucide-react";
 import { BookmarkGrid } from "../bookmarks/BookmarkGrid";
-import { mockBookmarks } from "../bookmarks/mock-bookmarks";
+import type { LibraryBookmark } from "../bookmarks/types";
 import {
   getBookmarkDetailsSnapshot,
+  getBookmarksSnapshot,
   getServerBookmarkDetailsSnapshot,
+  getServerBookmarksSnapshot,
+  loadSavedBookmarks,
   readBookmarkDetailState,
   subscribeToBookmarkDetails,
+  subscribeToBookmarks,
 } from "../../lib/bookmarks";
 
 export function RecentlySaved() {
+  const bookmarksSnapshot = useSyncExternalStore(
+    subscribeToBookmarks,
+    getBookmarksSnapshot,
+    getServerBookmarksSnapshot,
+  );
   const detailsSnapshot = useSyncExternalStore(
     subscribeToBookmarkDetails,
     getBookmarkDetailsSnapshot,
@@ -20,44 +29,54 @@ export function RecentlySaved() {
   const [showAll, setShowAll] = useState(false);
   const savedItems = useMemo(() => {
     try {
-      const entries: unknown = JSON.parse(detailsSnapshot || "[]");
-      if (
-        !Array.isArray(entries) ||
-        !entries.every(
-          (entry) =>
-            Array.isArray(entry) &&
-            entry.length === 2 &&
-            typeof entry[0] === "string" &&
-            typeof entry[1] === "string",
-        )
-      ) {
-        return mockBookmarks.slice(0, 6);
+      const details: unknown = JSON.parse(detailsSnapshot || "[]");
+      if (!Array.isArray(details)) return [];
+      const detailById = new Map<string, ReturnType<typeof readBookmarkDetailState>>();
+      for (const entry of details) {
+        if (
+          Array.isArray(entry) &&
+          entry.length === 2 &&
+          typeof entry[0] === "string" &&
+          typeof entry[1] === "string"
+        ) {
+          detailById.set(entry[0], readBookmarkDetailState(entry[1]));
+        }
       }
-      const details = new Map(
-        entries.map(([id, value]: [string, string]) => [
-          id,
-          readBookmarkDetailState(value),
-        ]),
-      );
-      return mockBookmarks
+
+      return loadSavedBookmarks(bookmarksSnapshot)
         .map((bookmark) => {
-          const detail = details.get(bookmark.id);
+          const detail = detailById.get(bookmark.id);
           return {
             ...bookmark,
             title: detail?.title ?? bookmark.title,
-            topic: detail?.collection ?? bookmark.topic,
+            description: detail?.description ?? bookmark.description,
+            collection: detail?.collection ?? bookmark.collection,
             tags: detail?.tags ?? bookmark.tags,
-            favorite: detail?.favorite ?? bookmark.favorite,
-            archived: detail?.archived ?? bookmark.archived,
+            favorite: detail?.favorite ?? bookmark.favorite ?? false,
+            archived: detail?.archived ?? bookmark.archived ?? false,
             deleted: detail?.deleted ?? false,
           };
         })
         .filter((bookmark) => !bookmark.archived && !bookmark.deleted)
-        .slice(0, 6);
+        .slice(0, 6)
+        .map(
+          (bookmark): LibraryBookmark => ({
+            ...bookmark,
+            topic: bookmark.collection,
+            subtopic: bookmark.intent ?? "Saved",
+            icon: Globe2,
+            artwork: "from-primary/15 via-sky-500/10 to-transparent",
+            contentType: "article",
+            favorite: bookmark.favorite ?? false,
+            unread: bookmark.unread ?? false,
+            savedDate: bookmark.savedAt.slice(0, 10),
+            searchTerms: [bookmark.title, bookmark.domain, bookmark.url],
+          }),
+        );
     } catch {
-      return mockBookmarks.slice(0, 6);
+      return [];
     }
-  }, [detailsSnapshot]);
+  }, [bookmarksSnapshot, detailsSnapshot]);
   const visibleItems = showAll ? savedItems : savedItems.slice(0, 3);
 
   return (
@@ -69,42 +88,47 @@ export function RecentlySaved() {
       <div className="mx-auto max-w-container-xl">
         <div className="mb-5 flex items-end justify-between gap-4 sm:mb-6">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-              Sample bookmarks
-            </p>
             <h2
               id="recently-saved-title"
-              className="mt-1.5 text-xl font-semibold tracking-[-0.035em] text-text sm:text-2xl"
+              className="text-xl font-semibold tracking-[-0.035em] text-text sm:text-2xl"
             >
               Recently saved
             </h2>
           </div>
-          <button
-            type="button"
-            aria-expanded={showAll}
-            aria-controls="recently-saved-grid"
-            onClick={() => setShowAll((current) => !current)}
-            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-sm"
-          >
-            {showAll ? "Show recent" : "View all"}
-            {showAll ? (
-              <ArrowDownRight
-                aria-hidden="true"
-                className="size-4 rotate-180"
-              />
-            ) : (
-              <ArrowUpRight aria-hidden="true" className="size-4" />
-            )}
-          </button>
+          {savedItems.length > 3 && (
+            <button
+              type="button"
+              aria-expanded={showAll}
+              aria-controls="recently-saved-grid"
+              onClick={() => setShowAll((current) => !current)}
+              className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-full px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-sm"
+            >
+              {showAll ? "Show recent" : "View all"}
+              {showAll ? (
+                <ArrowDownRight
+                  aria-hidden="true"
+                  className="size-4 rotate-180"
+                />
+              ) : (
+                <ArrowUpRight aria-hidden="true" className="size-4" />
+              )}
+            </button>
+          )}
         </div>
 
-        <BookmarkGrid
-          id="recently-saved-grid"
-          labelledBy="recently-saved-title"
-          bookmarks={visibleItems}
-        />
+        {visibleItems.length ? (
+          <BookmarkGrid
+            id="recently-saved-grid"
+            labelledBy="recently-saved-title"
+            bookmarks={visibleItems}
+          />
+        ) : (
+          <p className="rounded-2xl border border-border/60 bg-surface-elevated p-5 text-sm text-text-muted">
+            Your saved bookmarks will appear here.
+          </p>
+        )}
         <p className="sr-only" role="status" aria-live="polite">
-          Showing {visibleItems.length} sample bookmarks.
+          Showing {visibleItems.length} saved bookmarks.
         </p>
       </div>
     </section>

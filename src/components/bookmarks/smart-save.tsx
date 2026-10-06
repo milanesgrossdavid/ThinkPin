@@ -10,41 +10,27 @@ import {
 } from "react";
 import Link from "next/link";
 import {
+  saveBookmarkAction,
+  updateBookmarkAction,
+} from "../../app/actions/bookmarks";
+import {
   ArrowRight,
   Check,
   CheckCircle2,
   ChevronDown,
-  Circle,
   ExternalLink,
   Link2,
   LoaderCircle,
   Sparkles,
 } from "lucide-react";
 import {
+  cacheServerBookmark,
   normalizeBookmarkUrl,
-  suggestBookmarkOrganization,
   updateSavedBookmark,
-  type BookmarkIntent,
   type SavedBookmark,
 } from "../../lib/bookmarks";
-import { mockSaveBookmark } from "../../lib/mock-actions/bookmarks";
 import { useAppToast } from "../feedback/AppToaster";
 import { ActionButton } from "../ui/ActionButton";
-
-const intents: BookmarkIntent[] = [
-  "Research",
-  "Learn",
-  "Buy",
-  "Reference",
-  "Project",
-  "Inspiration",
-];
-const enrichmentSteps = [
-  "Link detected",
-  "Page details",
-  "Finding topics",
-  "Suggesting tags",
-];
 
 function displayTitle(bookmark: SavedBookmark) {
   return bookmark.title || bookmark.domain;
@@ -56,46 +42,153 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
   const [url, setUrl] = useState("");
   const [bookmark, setBookmark] = useState<SavedBookmark | null>(null);
   const [alreadySaved, setAlreadySaved] = useState(false);
-  const [enrichmentStep, setEnrichmentStep] = useState(0);
   const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [editTitleOpen, setEditTitleOpen] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
   const [isPending, startTransition] = useTransition();
 
-  useEffect(() => {
-    if (!bookmark || enrichmentStep >= enrichmentSteps.length) {
-      return;
+  const pollForMetadata = useCallback(async (bookmarkId: string) => {
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+      try {
+        const response = await fetch(`/api/bookmarks/${bookmarkId}`, {
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error("Bookmark processing status could not be loaded.");
+        }
+        const payload: unknown = await response.json();
+        if (
+          typeof payload !== "object" ||
+          payload === null ||
+          !("bookmark" in payload) ||
+          typeof payload.bookmark !== "object" ||
+          payload.bookmark === null
+        ) {
+          throw new Error("Bookmark processing status response was invalid.");
+        }
+
+        const record = payload.bookmark as Record<string, unknown>;
+        if (
+          typeof record.id !== "string" ||
+          typeof record.url !== "string" ||
+          typeof record.domain !== "string" ||
+          typeof record.title !== "string" ||
+          typeof record.content_status !== "string"
+        ) {
+          throw new Error("Bookmark processing status response was invalid.");
+        }
+
+        const updated = cacheServerBookmark({
+          id: record.id,
+          url: record.url,
+          domain: record.domain,
+          title: record.title,
+          description:
+            typeof record.description === "string"
+              ? record.description
+              : null,
+          canonicalUrl:
+            typeof record.canonical_url === "string"
+              ? record.canonical_url
+              : null,
+          imageUrl:
+            typeof record.image_url === "string" ? record.image_url : null,
+          faviconUrl:
+            typeof record.favicon_url === "string" ? record.favicon_url : null,
+          contentStatus:
+            record.content_status === "pending" ||
+            record.content_status === "processing" ||
+            record.content_status === "ready" ||
+            record.content_status === "failed"
+              ? record.content_status
+              : undefined,
+          createdAt:
+            typeof record.created_at === "string" ? record.created_at : undefined,
+        });
+        setBookmark(updated);
+
+        if (
+          updated.contentStatus === "ready" ||
+          updated.contentStatus === "failed"
+        ) {
+          if (updated.contentStatus === "failed") {
+            setMessage(
+              "Your bookmark is safe, but page analysis could not be queued or completed.",
+            );
+          } else {
+            setMessage("");
+          }
+          return;
+        }
+      } catch (error) {
+        console.error("Bookmark metadata polling failed.", error);
+        setMessage(
+          "Your bookmark is saved. We couldn't check its page details right now.",
+        );
+        return;
+      }
     }
-
-    const timeout = window.setTimeout(() => {
-      setEnrichmentStep((current) => current + 1);
-    }, 650);
-
-    return () => window.clearTimeout(timeout);
-  }, [bookmark, enrichmentStep]);
+  }, []);
 
   const saveUrl = useCallback(async (value: string) => {
     setMessage("");
 
     try {
       const parsedUrl = normalizeBookmarkUrl(value);
-      const suggestions = suggestBookmarkOrganization(
-        parsedUrl.hostname.replace(/^www\./, ""),
-      );
-      const result = await mockSaveBookmark(parsedUrl.toString(), suggestions);
-      if (!result.success) {
+      const result = await saveBookmarkAction(parsedUrl.toString());
+      if (!result.ok) {
         throw new Error(result.error);
       }
-      setBookmark(result.data.bookmark);
-      setAlreadySaved(result.data.alreadySaved);
-      setEnrichmentStep(0);
-      setEditTitleOpen(false);
-      setMessage("");
-      setIsError(false);
-      if (result.data.alreadySaved) {
+
+      const record = result.bookmark;
+      const saved = cacheServerBookmark({
+        id: record.id,
+        url: record.url,
+        domain: record.domain,
+        title: "title" in record ? record.title : record.domain,
+        description: "description" in record ? record.description : null,
+        canonicalUrl: record.canonicalUrl,
+        imageUrl: "imageUrl" in record ? record.imageUrl : null,
+        faviconUrl: "faviconUrl" in record ? record.faviconUrl : null,
+        contentStatus: record.contentStatus,
+        createdAt: "createdAt" in record ? record.createdAt : undefined,
+      });
+
+      if (result.duplicate) {
+        setBookmark(saved);
+        setAlreadySaved(true);
+        if (
+          saved.contentStatus === "pending" ||
+          saved.contentStatus === "processing"
+        ) {
+          void pollForMetadata(saved.id);
+        } else if (
+          saved.contentStatus === "failed" &&
+          !result.processingQueued
+        ) {
+          setMessage(
+            "This bookmark is saved, but its background analysis could not be restarted.",
+          );
+        }
+        setEditTitleOpen(false);
+        setIsError(false);
         toast.info("This bookmark is already saved");
+        return;
+      }
+
+      setBookmark(saved);
+      setAlreadySaved(false);
+      setEditTitleOpen(false);
+      setIsError(false);
+      if (!result.processingQueued) {
+        setMessage(
+          "Your bookmark is safe, but page analysis could not be queued. Please try again later.",
+        );
       } else {
         toast.success("Bookmark saved");
+        void pollForMetadata(saved.id);
       }
     } catch (error) {
       setIsError(true);
@@ -108,7 +201,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
       setMessage(errorMessage);
       toast.error("Couldn't save this bookmark", errorMessage);
     }
-  }, [toast]);
+  }, [pollForMetadata, toast]);
 
   useEffect(() => {
     if (!initialUrl || processedInitialUrl.current === initialUrl) {
@@ -129,7 +222,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
     });
   }
 
-  function updateBookmark(
+  async function updateBookmark(
     updates: Partial<
       Pick<SavedBookmark, "title" | "collection" | "tags" | "intent">
     >,
@@ -139,13 +232,22 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
     }
 
     try {
+      const result = await updateBookmarkAction(bookmark.id, updates);
+      if (!result.ok) {
+        throw new Error(result.error);
+      }
       updateSavedBookmark(bookmark.id, updates);
       setBookmark((current) => (current ? { ...current, ...updates } : current));
       setMessage("");
       setIsError(false);
-    } catch {
+    } catch (error) {
       setIsError(true);
-      setMessage("We couldn't update your saved link. Please try again.");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "We couldn't update your saved link. Please try again.";
+      setMessage(errorMessage);
+      toast.error("Couldn't update this bookmark", errorMessage);
     }
   }
 
@@ -153,13 +255,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
     setBookmark(null);
     setUrl("");
     setMessage("");
-    setEnrichmentStep(0);
   }
-
-  const suggestions = bookmark
-    ? suggestBookmarkOrganization(bookmark.domain)
-    : null;
-  const isEnriching = enrichmentStep < enrichmentSteps.length;
 
   return (
     <main className="min-h-svh bg-background px-5 pb-16 pt-6 sm:px-8 sm:pb-20 sm:pt-10">
@@ -180,7 +276,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
             Save something
           </h1>
           <p className="mt-3 text-sm leading-6 text-text-muted sm:mt-4 sm:text-base sm:leading-7">
-            Paste a link. We&apos;ll do the organizing for you.
+            Paste a link. We&apos;ll save it and fetch its page metadata.
           </p>
         </header>
 
@@ -286,7 +382,14 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
             </div>
 
             <article className="overflow-hidden rounded-3xl border border-border/70 bg-surface-elevated shadow-sm">
-              <div className="flex min-h-28 items-center justify-center bg-gradient-to-br from-primary/10 via-surface to-surface-elevated p-5 sm:min-h-36">
+              <div
+                className="flex min-h-28 items-center justify-center bg-gradient-to-br from-primary/10 via-surface to-surface-elevated bg-cover bg-center p-5 sm:min-h-36"
+                style={
+                  bookmark.imageUrl
+                    ? { backgroundImage: `url("${bookmark.imageUrl}")` }
+                    : undefined
+                }
+              >
                 <div className="flex size-12 items-center justify-center rounded-2xl border border-border/60 bg-surface-elevated text-primary shadow-sm">
                   <Link2 aria-hidden="true" className="size-5" />
                 </div>
@@ -309,11 +412,19 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
                         className="size-3 shrink-0"
                       />
                     </a>
+                    {bookmark.description && (
+                      <p className="mt-3 line-clamp-3 text-sm leading-6 text-text-muted">
+                        {bookmark.description}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
                     aria-expanded={editTitleOpen}
-                    onClick={() => setEditTitleOpen((open) => !open)}
+                    onClick={() => {
+                      setTitleDraft(bookmark.title);
+                      setEditTitleOpen((open) => !open);
+                    }}
                     className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-full px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     Edit title
@@ -329,10 +440,13 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
                       Title
                     </span>
                     <input
-                      value={bookmark.title}
-                      onChange={(event) =>
-                        updateBookmark({ title: event.target.value })
-                      }
+                      value={titleDraft}
+                      onChange={(event) => setTitleDraft(event.target.value)}
+                      onBlur={() => {
+                        if (titleDraft !== bookmark.title) {
+                          void updateBookmark({ title: titleDraft });
+                        }
+                      }}
                       className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm text-text outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
                     />
                   </label>
@@ -342,153 +456,40 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
 
             <div className="rounded-2xl border border-border/70 bg-surface-elevated p-4 sm:p-5">
               <div className="flex items-center gap-2">
-                <Sparkles
-                  aria-hidden="true"
-                  className="size-4 text-primary"
-                />
                 <h2 className="text-sm font-semibold text-text">
-                  {isEnriching ? "Finding the useful details" : "Looks good?"}
+                  {bookmark.contentStatus === "failed"
+                    ? "Page details are unavailable"
+                    : bookmark.contentStatus === "ready"
+                      ? "Page details are ready"
+                      : "Getting page details"}
                 </h2>
+                {bookmark.contentStatus === "pending" ||
+                bookmark.contentStatus === "processing" ? (
+                  <LoaderCircle
+                    aria-hidden="true"
+                    className="size-4 animate-spin text-primary"
+                  />
+                ) : bookmark.contentStatus === "ready" ? (
+                  <Check
+                    aria-hidden="true"
+                    className="size-4 text-success"
+                  />
+                ) : (
+                  <Sparkles
+                    aria-hidden="true"
+                    className="size-4 text-text-muted"
+                  />
+                )}
               </div>
-              <ol className="mt-4 grid grid-cols-2 gap-x-3 gap-y-2 sm:grid-cols-4">
-                {enrichmentSteps.map((step, index) => {
-                  const isDone = index < enrichmentStep;
-                  const isCurrent = index === enrichmentStep && isEnriching;
-
-                  return (
-                    <li
-                      key={step}
-                      className={`flex min-w-0 items-center gap-1.5 text-[11px] leading-4 ${
-                        isDone || isCurrent ? "text-text" : "text-text-muted"
-                      }`}
-                    >
-                      {isDone ? (
-                        <Check
-                          aria-hidden="true"
-                          className="size-3.5 shrink-0 text-success"
-                        />
-                      ) : isCurrent ? (
-                        <LoaderCircle
-                          aria-hidden="true"
-                          className="size-3.5 shrink-0 animate-spin text-primary"
-                        />
-                      ) : (
-                        <Circle
-                          aria-hidden="true"
-                          className="size-3.5 shrink-0"
-                        />
-                      )}
-                      <span>{step}</span>
-                    </li>
-                  );
-                })}
-              </ol>
               <p className="mt-3 text-[11px] leading-5 text-text-muted">
-                Suggestions are a local preview for now; automatic page analysis
-                isn&apos;t connected yet.
+                {bookmark.contentStatus === "failed"
+                  ? message ||
+                    "Your bookmark is saved. The background job could not complete."
+                  : bookmark.contentStatus === "ready"
+                    ? "Metadata was extracted in the background. Automatic topics and AI tags are not part of this first stage yet."
+                    : "The bookmark is saved. Inngest is fetching the page metadata in the background."}
               </p>
             </div>
-
-            {suggestions && (
-              <div className="space-y-5 rounded-2xl border border-border/70 bg-surface-elevated p-4 sm:p-5">
-                <div>
-                  <p className="text-sm font-semibold text-text">
-                    We organized this for you
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-text-muted">
-                    These are suggestions. You can change them anytime.
-                  </p>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-medium text-text-muted">
-                    Suggested collection
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {[suggestions.collection, "Unsorted"].map((collection) => (
-                      <button
-                        key={collection}
-                        type="button"
-                        aria-pressed={bookmark.collection === collection}
-                        onClick={() => updateBookmark({ collection })}
-                        className={`inline-flex min-h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                          bookmark.collection === collection
-                            ? "border-primary/40 bg-primary/10 text-primary"
-                            : "border-border bg-background text-text-muted hover:text-text"
-                        }`}
-                      >
-                        {collection}
-                        {bookmark.collection === collection && (
-                          <Check aria-hidden="true" className="size-3.5" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-medium text-text-muted">
-                    Suggested tags
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {suggestions.tags.map((tag) => {
-                      const selected = bookmark.tags.includes(tag);
-
-                      return (
-                        <button
-                          key={tag}
-                          type="button"
-                          aria-pressed={selected}
-                          onClick={() =>
-                            updateBookmark({
-                              tags: selected
-                                ? bookmark.tags.filter((item) => item !== tag)
-                                : [...bookmark.tags, tag],
-                            })
-                          }
-                          className={`inline-flex min-h-8 items-center rounded-full px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                            selected
-                              ? "bg-primary/10 text-primary"
-                              : "bg-background text-text-muted hover:text-text"
-                          }`}
-                        >
-                          #{tag}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-medium text-text-muted">
-                    Why are you saving this?
-                    <span className="ml-1 font-normal">(optional)</span>
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {intents.map((intent) => (
-                      <button
-                        key={intent}
-                        type="button"
-                        aria-pressed={bookmark.intent === intent}
-                        onClick={() =>
-                          updateBookmark({
-                            intent:
-                              bookmark.intent === intent ? undefined : intent,
-                          })
-                        }
-                        className={`inline-flex min-h-8 items-center rounded-full border px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                          bookmark.intent === intent
-                            ? "border-primary/40 bg-primary/10 text-primary"
-                            : "border-border text-text-muted hover:bg-background hover:text-text"
-                        }`}
-                      >
-                        {intent}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
 
             {message && (
               <p

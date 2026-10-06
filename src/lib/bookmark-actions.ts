@@ -1,11 +1,15 @@
+"use client";
+
 import {
-  mockSetArchived,
-  mockSetBookmarkDeleted,
-  mockSetUnread,
-  mockToggleFavorite,
-  mockUpdateBookmarkDetails,
-} from "./mock-actions/bookmarks";
-import type { BookmarkDetailState } from "./bookmarks";
+  deleteBookmarkAction,
+  updateBookmarkAction,
+} from "../app/actions/bookmarks";
+import {
+  removeSavedBookmark,
+  updateBookmarkDetailState,
+  updateSavedBookmark,
+  type BookmarkDetailState,
+} from "./bookmarks";
 
 export type BookmarkActions = {
   setFavorite: (bookmarkId: string, favorite: boolean) => Promise<boolean>;
@@ -26,31 +30,53 @@ type Notify = {
   error: (title: string, description: string) => void;
 };
 
-export function createLocalBookmarkActions(notify: Notify): BookmarkActions {
-  async function run(
-    action:
-      | ReturnType<typeof mockToggleFavorite>
-      | ReturnType<typeof mockSetUnread>
-      | ReturnType<typeof mockUpdateBookmarkDetails>
-      | ReturnType<typeof mockSetBookmarkDeleted>,
+export function createBookmarkActions(notify: Notify): BookmarkActions {
+  async function update(
+    bookmarkId: string,
+    updates: BookmarkDetailState,
     successMessage: string | null,
-  ): Promise<boolean> {
+  ) {
     try {
-      const result = await action;
-      if (!result.success) {
+      const result = await updateBookmarkAction(bookmarkId, updates);
+      if (!result.ok) {
         notify.error("Couldn't update this bookmark", result.error);
         return false;
       }
-      if (successMessage) {
-        notify.success(successMessage);
+
+      try {
+        updateBookmarkDetailState(bookmarkId, updates);
+        updateSavedBookmark(bookmarkId, {
+          ...(updates.title !== undefined ? { title: updates.title } : {}),
+          ...(updates.description !== undefined
+            ? { description: updates.description }
+            : {}),
+          ...(updates.collection !== undefined
+            ? { collection: updates.collection }
+            : {}),
+          ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
+          ...(updates.intent !== undefined ? { intent: updates.intent ?? undefined } : {}),
+          ...(updates.favorite !== undefined
+            ? { favorite: updates.favorite }
+            : {}),
+          ...(updates.archived !== undefined
+            ? { archived: updates.archived }
+            : {}),
+        });
+      } catch (error) {
+        console.error(
+          "Bookmark was persisted but its browser cache could not be updated.",
+          error,
+        );
       }
+
+      if (successMessage) notify.success(successMessage);
       return true;
     } catch (error) {
       notify.error(
         "Couldn't update this bookmark",
         error instanceof Error
           ? error.message
-          : "Check browser storage permissions and try again.",
+          : "Try again in a moment.",
       );
       return false;
     }
@@ -58,26 +84,30 @@ export function createLocalBookmarkActions(notify: Notify): BookmarkActions {
 
   return {
     setFavorite(bookmarkId, favorite) {
-      return run(
-        mockToggleFavorite(bookmarkId, favorite),
+      return update(
+        bookmarkId,
+        { favorite },
         favorite ? "Added to favorites" : "Removed from favorites",
       );
     },
     setUnread(bookmarkId, unread) {
-      return run(
-        mockSetUnread(bookmarkId, unread),
+      return update(
+        bookmarkId,
+        { unread },
         unread ? "Marked as unread" : "Marked as read",
       );
     },
     setArchived(bookmarkId, archived) {
-      return run(
-        mockSetArchived(bookmarkId, archived),
+      return update(
+        bookmarkId,
+        { archived },
         archived ? "Archived" : "Restored from archive",
       );
     },
     updateDetails(bookmarkId, updates) {
-      return run(
-        mockUpdateBookmarkDetails(bookmarkId, updates),
+      return update(
+        bookmarkId,
+        updates,
         updates.notes !== undefined
           ? updates.notes.trim()
             ? "Note added"
@@ -86,16 +116,42 @@ export function createLocalBookmarkActions(notify: Notify): BookmarkActions {
               updates.description !== undefined ||
               updates.intent !== undefined
             ? "Changes saved"
-          : updates.collection
-            ? `Bookmark moved to ${updates.collection}`
-            : "Tags updated",
+            : updates.collection
+              ? `Moved to ${updates.collection}`
+              : "Tags updated",
       );
     },
-    setDeleted(bookmarkId, deleted) {
-      return run(
-        mockSetBookmarkDeleted(bookmarkId, deleted),
-        deleted ? null : "Bookmark restored",
-      );
+    async setDeleted(bookmarkId, deleted) {
+      if (!deleted) {
+        notify.error(
+          "Couldn't restore this bookmark",
+          "Deleted bookmarks can't be restored.",
+        );
+        return false;
+      }
+
+      try {
+        const result = await deleteBookmarkAction(bookmarkId);
+        if (!result.ok) {
+          notify.error("Couldn't delete this bookmark", result.error);
+          return false;
+        }
+        try {
+          removeSavedBookmark(bookmarkId);
+        } catch (error) {
+          console.error(
+            "Bookmark was deleted but its browser cache could not be updated.",
+            error,
+          );
+        }
+        return true;
+      } catch (error) {
+        notify.error(
+          "Couldn't delete this bookmark",
+          error instanceof Error ? error.message : "Try again in a moment.",
+        );
+        return false;
+      }
     },
   };
 }

@@ -4,6 +4,7 @@ import { CommandMenu } from "../components/search/command-menu";
 import { BookmarkInteractionsProvider } from "../components/bookmarks/bookmark-interactions-provider";
 import { AppToaster } from "../components/feedback/AppToaster";
 import { SmartSaveDialog } from "../components/bookmarks/smart-save-dialog";
+import { BookmarkSync } from "../components/bookmarks/bookmark-sync";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -32,6 +33,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="min-h-full">
         <AppToaster>
           <BookmarkInteractionsProvider>
+            <BookmarkSync />
             {children}
             <CommandMenu />
             <SmartSaveDialog />

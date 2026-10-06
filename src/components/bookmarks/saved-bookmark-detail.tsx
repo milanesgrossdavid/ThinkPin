@@ -68,8 +68,9 @@ export function SavedBookmarkDetail({ bookmarkId }: { bookmarkId: string }) {
                 : "article",
           intent: bookmark.intent,
           favorite: bookmark.favorite ?? false,
-          unread: true,
+          unread: bookmark.unread ?? false,
           archived: bookmark.archived ?? false,
+          notes: bookmark.notes,
         }}
         collection={bookmark.collection}
       />

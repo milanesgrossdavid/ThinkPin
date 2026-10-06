@@ -18,7 +18,6 @@ import {
 import { BookmarkThumbnail } from "./BookmarkThumbnail";
 import { BookmarkFavoriteButton } from "./BookmarkFavoriteButton";
 import { BookmarkDetailHeader } from "./bookmark-detail-header";
-import { mockBookmarks } from "./mock-bookmarks";
 import type { Bookmark } from "./types";
 import { useBookmarkActions } from "./bookmark-interactions-provider";
 import { useAppToast } from "../feedback/AppToaster";
@@ -28,9 +27,6 @@ import {
   getServerBookmarkDetailSnapshot,
   readBookmarkDetailState,
   subscribeToBookmarkDetail,
-  updateBookmarkDetailState,
-  type BookmarkDetailActivity,
-  type BookmarkDetailState,
 } from "../../lib/bookmarks";
 import {
   getCollectionsSnapshot,
@@ -42,8 +38,6 @@ import {
 type BookmarkDetailViewProps = {
   bookmark: Bookmark;
   collection: string;
-  relatedIds?: string[];
-  isMock?: boolean;
 };
 
 function labelForContentType(contentType: Bookmark["contentType"]) {
@@ -95,60 +89,9 @@ function formatSavedDate(bookmark: Bookmark) {
   }).format(date);
 }
 
-function mockSummary(bookmark: Bookmark) {
-  if (bookmark.contentType === "repository") {
-    return `${bookmark.title} is a code repository focused on ${bookmark.description?.toLowerCase() ?? "modern web development"}. Explore its implementation, documentation, and examples as a reference for related projects.`;
-  }
-  if (bookmark.contentType === "video") {
-    return `This video introduces ${bookmark.description?.toLowerCase() ?? bookmark.title.toLowerCase()} and provides a visual walkthrough you can revisit while learning.`;
-  }
-  return `${bookmark.description ?? bookmark.title} This saved ${labelForContentType(bookmark.contentType).toLowerCase()} may be useful as a reference for ${bookmark.topic.toLowerCase()}.`;
-}
-
-function mockReason(bookmark: Bookmark) {
-  if (!bookmark.intent) {
-    return "You haven't added a reason yet.";
-  }
-  return `Saved for ${bookmark.intent.toLowerCase()} while exploring ${bookmark.subtopic.toLowerCase()} in ${bookmark.topic.toLowerCase()}.`;
-}
-
-function CardLink({ bookmark }: { bookmark: Bookmark }) {
-  return (
-    <div className="flex min-w-0 items-center gap-2 rounded-2xl border border-border/60 bg-background p-2 transition-colors hover:border-primary/30 hover:bg-surface sm:gap-3 sm:p-3">
-      <Link
-        href={`/app/bookmarks/${encodeURIComponent(bookmark.id)}`}
-        className="group flex min-w-0 flex-1 items-center gap-3 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        <BookmarkThumbnail
-          icon={bookmark.icon}
-          topic={bookmark.topic}
-          artwork={bookmark.artwork}
-          thumbnailUrl={bookmark.thumbnailUrl}
-          variant="list"
-        />
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-semibold text-text group-hover:text-primary">
-            {bookmark.title}
-          </span>
-          <span className="mt-1 block truncate text-xs text-text-muted">
-            {bookmark.domain}
-          </span>
-        </span>
-        <ArrowUpRight
-          aria-hidden="true"
-          className="size-4 shrink-0 text-text-muted transition-colors group-hover:text-primary"
-        />
-      </Link>
-      <BookmarkFavoriteButton bookmark={bookmark} />
-    </div>
-  );
-}
-
 export function BookmarkDetailView({
   bookmark,
   collection,
-  relatedIds,
-  isMock = false,
 }: BookmarkDetailViewProps) {
   const subscribe = useCallback(
     (onChange: () => void) =>
@@ -202,7 +145,6 @@ export function BookmarkDetailView({
   const [tagDraft, setTagDraft] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
   const [showCollectionOptions, setShowCollectionOptions] = useState(false);
-  const [summaryExpanded, setSummaryExpanded] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [noteSaveSucceeded, setNoteSaveSucceeded] = useState(false);
   const [noteSaveFailed, setNoteSaveFailed] = useState(false);
@@ -217,20 +159,8 @@ export function BookmarkDetailView({
   const activeCollection = detailState.collection ?? collection;
   const tags = detailState.tags ?? bookmark.tags ?? [bookmark.topic, bookmark.subtopic];
   const intent = detailState.intent ?? bookmark.intent;
-  const notes = notesDraft ?? detailState.notes ?? "";
+  const notes = notesDraft ?? detailState.notes ?? bookmark.notes ?? "";
   const savedDate = formatSavedDate(bookmark);
-  const summary = mockSummary({
-    ...bookmark,
-    title: activeTitle,
-    description: activeDescription,
-    topic: activeCollection,
-    intent,
-  });
-  const whySaved = isMock
-    ? mockReason({ ...bookmark, intent, topic: activeCollection })
-    : intent
-      ? `You marked this for ${intent.toLowerCase()}.`
-      : "You haven't added a reason yet.";
   const detailStorageError =
     detailSnapshot === null
       ? "Can't access saved details in this browser."
@@ -245,48 +175,6 @@ export function BookmarkDetailView({
           })()
         ? "Saved detail data is invalid. Changes may not persist."
         : "";
-  const relatedBookmarks = (relatedIds
-    ? relatedIds
-        .map((id) => mockBookmarks.find((item) => item.id === id))
-        .filter((item): item is (typeof mockBookmarks)[number] => Boolean(item))
-    : mockBookmarks.filter(
-        (item) =>
-          item.id !== bookmark.id &&
-          (item.topic === activeCollection ||
-            item.tags?.some((tag) => tags.includes(tag))),
-      )
-  ).slice(0, 3);
-
-  function updateState(updates: BookmarkDetailState, activity?: string) {
-    try {
-      const current = readBookmarkDetailState(
-        getBookmarkDetailSnapshot(bookmark.id),
-      );
-      const activityEntry: BookmarkDetailActivity[] = activity
-        ? [
-            {
-              action: activity,
-              at: new Date().toISOString(),
-            },
-            ...(current.activity ?? []),
-          ]
-        : (current.activity ?? []);
-      updateBookmarkDetailState(bookmark.id, {
-        ...updates,
-        ...(activity ? { activity: activityEntry } : {}),
-      });
-      setFeedback("");
-      if (activity) {
-        toast.success(activity);
-      }
-    } catch {
-      setFeedback("Couldn't save that update. Check browser storage permissions.");
-      toast.error(
-        "Couldn't save your changes",
-        "Check browser storage permissions and try again.",
-      );
-    }
-  }
 
   function toggleArchive() {
     const nextArchived = !archived;
@@ -356,22 +244,28 @@ export function BookmarkDetailView({
       return;
     }
 
-    updateState(
-      { tags: [...tags, newTag] },
-      `Added tag #${newTag}`,
-    );
-    setTagDraft("");
-    setShowTagInput(false);
-    setFeedback("Tag added.");
+    startInteraction(async () => {
+      const succeeded = await updateDetails(bookmark.id, {
+        tags: [...tags, newTag],
+      });
+      if (succeeded) {
+        setTagDraft("");
+        setShowTagInput(false);
+        setFeedback(`Added tag #${newTag}`);
+      }
+    });
   }
 
   function moveToCollection(nextCollection: string) {
-    updateState(
-      { collection: nextCollection },
-      `Moved to ${nextCollection}`,
-    );
-    setShowCollectionOptions(false);
-    setFeedback(`Moved to ${nextCollection}.`);
+    startInteraction(async () => {
+      const succeeded = await updateDetails(bookmark.id, {
+        collection: nextCollection,
+      });
+      if (succeeded) {
+        setShowCollectionOptions(false);
+        setFeedback(`Moved to ${nextCollection}.`);
+      }
+    });
   }
 
   return (
@@ -480,14 +374,6 @@ export function BookmarkDetailView({
               <Sparkles aria-hidden="true" className="size-3.5" />
               {intent ?? "Not specified"}
             </p>
-            <p className="mt-2 text-sm leading-6 text-text-muted">
-              {whySaved}
-              {isMock && (
-                <span className="ml-1 text-text-muted/70">
-                  (sample context)
-                </span>
-              )}
-            </p>
           </section>
 
           <section className="py-5 sm:py-6">
@@ -588,59 +474,7 @@ export function BookmarkDetailView({
             </p>
           </section>
 
-          <section className="py-5 sm:py-6">
-            <div className="flex items-center gap-2">
-              <Sparkles aria-hidden="true" className="size-4 text-primary" />
-              <h2 className="text-sm font-semibold text-text">AI Summary</h2>
-              <span className="rounded-full bg-background px-2 py-0.5 text-[10px] font-medium text-text-muted">
-                Preview
-              </span>
-            </div>
-            <p
-              className={`mt-3 text-sm leading-7 text-text-muted ${summaryExpanded ? "" : "line-clamp-3"}`}
-            >
-              {summary}
-            </p>
-            <button
-              type="button"
-              aria-expanded={summaryExpanded}
-              onClick={() => setSummaryExpanded((expanded) => !expanded)}
-              className="mt-2 inline-flex min-h-8 items-center gap-1 text-xs font-semibold text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              {summaryExpanded ? "Show less" : "Show more"}
-            </button>
-            <p className="mt-1 text-[11px] text-text-muted">
-              Example summary for this prototype; AI analysis is not connected.
-            </p>
-          </section>
         </div>
-
-        <section className="mt-8" aria-labelledby="related-bookmarks-title">
-          <div className="mb-3">
-            <h2
-              id="related-bookmarks-title"
-              className="text-lg font-semibold tracking-[-0.03em] text-text"
-            >
-              Related from your library
-            </h2>
-            <p className="mt-1 text-xs text-text-muted">
-              You may also find these useful.
-            </p>
-          </div>
-          {relatedBookmarks.length > 0 ? (
-            <ul className="grid list-none gap-2 p-0 sm:grid-cols-2">
-              {relatedBookmarks.map((item) => (
-                <li key={item.id} className="min-w-0">
-                  <CardLink bookmark={item} />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="rounded-2xl border border-border/60 bg-surface-elevated p-4 text-sm text-text-muted">
-              Save more links to find related items here.
-            </p>
-          )}
-        </section>
 
         <section className="mt-8 rounded-3xl border border-border/60 bg-surface-elevated p-5 sm:p-6">
           <div className="flex items-center justify-between gap-3">

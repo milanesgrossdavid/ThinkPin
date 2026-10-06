@@ -26,7 +26,6 @@ import { BookmarkFavoriteButton } from "./BookmarkFavoriteButton";
 import { useAppToast } from "../feedback/AppToaster";
 import { ActionButton } from "../ui/ActionButton";
 import type { Bookmark, BookmarkView } from "./types";
-import { mockBookmarks } from "./mock-bookmarks";
 import { mockCollections } from "../../lib/mock/collections";
 import {
   createCollection,
@@ -66,6 +65,17 @@ function uniqueTags(values: string[]) {
       seen.add(key);
       return true;
     });
+}
+
+function formatSavedDate(value: string) {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat("en", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(date);
 }
 
 type BookmarkCardProps = {
@@ -137,7 +147,6 @@ export function BookmarkCard({
   );
   const availableTags = uniqueTags([
     ...suggestedTags,
-    ...mockBookmarks.flatMap((item) => item.tags ?? []),
     ...tags,
   ]).sort((left, right) => left.localeCompare(right));
   const filteredTags = availableTags.filter((tag) =>
@@ -225,9 +234,7 @@ export function BookmarkCard({
         () => setDeleted(bookmark.id, true),
         () => {
           setDialogMode(null);
-          toast.action("Bookmark deleted", "Undo", () => {
-            void setDeleted(bookmark.id, false);
-          });
+          toast.success("Bookmark deleted");
         },
       );
       return;
@@ -518,7 +525,7 @@ export function BookmarkCard({
             {actions}
             {!isCompact && (
               <span className="hidden text-[10px] text-text-muted sm:block">
-                Saved {bookmark.savedAt}
+                Saved {formatSavedDate(bookmark.savedAt)}
               </span>
             )}
           </div>
@@ -527,7 +534,7 @@ export function BookmarkCard({
         {isGrid && (
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/50 pt-3">
             <span className="text-[10px] text-text-muted">
-              Saved {bookmark.savedAt}
+              Saved {formatSavedDate(bookmark.savedAt)}
             </span>
             {unread && (
               <span className="inline-flex items-center gap-1.5 text-[10px] font-medium text-primary">

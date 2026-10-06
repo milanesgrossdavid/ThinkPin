@@ -12,8 +12,7 @@ import {
 } from "lucide-react";
 import { BookmarkGrid } from "../bookmarks/BookmarkGrid";
 import { BookmarkList } from "../bookmarks/BookmarkList";
-import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks";
-import type { BookmarkView } from "../bookmarks/types";
+import type { BookmarkView, LibraryBookmark } from "../bookmarks/types";
 import {
   getBookmarkDetailsSnapshot,
   getBookmarksSnapshot,
@@ -25,10 +24,11 @@ import {
   subscribeToBookmarks,
 } from "../../lib/bookmarks";
 import {
+  relatedTopics,
+  searchBookmarks,
   type SearchMode,
   type SearchState,
 } from "../../lib/search";
-import { mockSearchBookmarks } from "../../lib/mock-actions/search";
 import { useAppToast } from "../feedback/AppToaster";
 import { ErrorState } from "../feedback/ErrorState";
 import { BookmarkGridSkeleton, BookmarkSkeleton } from "../skeletons/app-skeletons";
@@ -67,7 +67,7 @@ function toSavedLibraryBookmark(
     artwork: "from-primary/15 via-sky-500/10 to-transparent",
     contentType,
     favorite: bookmark.favorite ?? false,
-    unread: true,
+    unread: bookmark.unread ?? false,
     savedDate: bookmark.savedAt.slice(0, 10),
     searchTerms: [bookmark.collection, bookmark.intent ?? "", bookmark.url],
   };
@@ -111,7 +111,7 @@ function loadSearchData(
   const savedBookmarks = loadSavedBookmarks(bookmarksSnapshot).map(
     toSavedLibraryBookmark,
   );
-  const bookmarks = [...savedBookmarks, ...mockBookmarks]
+  const bookmarks = [...savedBookmarks]
     .map((bookmark) => {
       const detail = details.get(bookmark.id);
       return {
@@ -210,12 +210,18 @@ export function SearchPage({
           setRequestPending(true);
           setSearchError("");
         }
-        return mockSearchBookmarks(
+        const results = searchBookmarks(
           bookmarks,
           debouncedQuery,
           mode,
           notesByBookmark,
         );
+        return {
+          query: debouncedQuery,
+          results,
+          topics: relatedTopics(results, debouncedQuery, mode),
+          mode,
+        };
       })
       .then((result) => {
         if (active) {

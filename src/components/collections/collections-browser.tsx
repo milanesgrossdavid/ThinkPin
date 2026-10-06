@@ -15,7 +15,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks";
+import type { LibraryBookmark } from "../bookmarks/types";
 import {
   getBookmarkDetailsSnapshot,
   getBookmarksSnapshot,
@@ -334,7 +334,7 @@ export function CollectionsBrowser({
           return [entry[0], readBookmarkDetailState(entry[1])];
         }),
       );
-      const bookmarks = [...savedBookmarks, ...mockBookmarks]
+      const bookmarks = [...savedBookmarks]
         .map((bookmark) => {
           const state = detailStates.get(bookmark.id);
           return {

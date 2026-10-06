@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { BookmarkGrid } from "../bookmarks/BookmarkGrid";
 import { BookmarkList } from "../bookmarks/BookmarkList";
-import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks";
+import type { LibraryBookmark } from "../bookmarks/types";
 import type { BookmarkView } from "../bookmarks/types";
 import {
   getBookmarkDetailsSnapshot,
@@ -119,10 +119,9 @@ function createCollectionModel(
   }
 
   const customCollections = loadCollections(collectionsSnapshot);
-  const bookmarks = [
-    ...loadSavedBookmarks(bookmarksSnapshot).map(toSavedLibraryBookmark),
-    ...mockBookmarks,
-  ];
+  const bookmarks = loadSavedBookmarks(bookmarksSnapshot).map(
+    toSavedLibraryBookmark,
+  );
   const rawDetails: unknown = JSON.parse(detailsSnapshot);
   if (!Array.isArray(rawDetails) || !rawDetails.every(isDetailEntry)) {
     throw new Error("Saved bookmark details are invalid.");

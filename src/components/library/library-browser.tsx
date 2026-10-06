@@ -18,8 +18,7 @@ import {
 } from "lucide-react";
 import { BookmarkGrid } from "../bookmarks/BookmarkGrid";
 import { BookmarkList } from "../bookmarks/BookmarkList";
-import { mockBookmarks, type LibraryBookmark } from "../bookmarks/mock-bookmarks";
-import type { BookmarkView } from "../bookmarks/types";
+import type { BookmarkView, LibraryBookmark } from "../bookmarks/types";
 import { requestSmartSave } from "../../lib/save-dialog";
 import { ErrorState } from "../feedback/ErrorState";
 import {
@@ -226,7 +225,7 @@ export function LibraryBrowser({
             artwork: "from-primary/15 via-sky-500/10 to-transparent",
             contentType,
             favorite: bookmark.favorite ?? false,
-            unread: true,
+            unread: bookmark.unread ?? false,
             savedDate: bookmark.savedAt.slice(0, 10),
             searchTerms: [
               bookmark.collection,
@@ -280,7 +279,7 @@ export function LibraryBrowser({
     () =>
       [
         ...new Set(
-          [...savedBookmarks, ...mockBookmarks]
+          savedBookmarks
             .map((bookmark) => {
               const collection = detailStates.get(bookmark.id)?.collection;
               return typeof collection === "string"
@@ -296,7 +295,7 @@ export function LibraryBrowser({
     () =>
       [
         ...new Set(
-          [...savedBookmarks, ...mockBookmarks].flatMap((bookmark) => {
+          savedBookmarks.flatMap((bookmark) => {
             const tags = detailStates.get(bookmark.id)?.tags;
             return Array.isArray(tags)
               ? tags.filter((tag): tag is string => typeof tag === "string")
@@ -400,7 +399,7 @@ export function LibraryBrowser({
       .filter((term) => term.length > 1 && !ignoredSearchTerms.has(term))
       .map((term) => (term.endsWith("s") ? term.slice(0, -1) : term));
 
-    const filtered = [...savedBookmarks, ...mockBookmarks]
+    const filtered = [...savedBookmarks]
       .map((bookmark) => {
         const detailState = detailStates.get(bookmark.id);
         return {
@@ -423,9 +422,6 @@ export function LibraryBrowser({
           ...(typeof detailState?.unread === "boolean"
             ? { unread: detailState.unread }
             : {}),
-          ...(typeof detailState?.deleted === "boolean"
-            ? { deleted: detailState.deleted }
-            : {}),
           ...(typeof detailState?.collection === "string"
             ? { topic: detailState.collection }
             : {}),
@@ -439,7 +435,7 @@ export function LibraryBrowser({
         };
       })
       .filter((bookmark) => {
-        if (bookmark.archived || bookmark.deleted) {
+        if (bookmark.archived) {
           return false;
         }
 
@@ -544,7 +540,7 @@ export function LibraryBrowser({
     selectedTopics,
   ]);
   const hasNoLibraryItems =
-    savedBookmarks.length + mockBookmarks.length === 0 &&
+    savedBookmarks.length === 0 &&
     !query.trim() &&
     filter === "all" &&
     selectedTopics.length === 0 &&

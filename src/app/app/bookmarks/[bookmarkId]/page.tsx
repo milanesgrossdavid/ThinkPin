@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { MockBookmarkDetail } from "../../../../components/bookmarks/mock-bookmark-detail";
 import { SavedBookmarkDetail } from "../../../../components/bookmarks/saved-bookmark-detail";
-import { mockBookmarks } from "../../../../components/bookmarks/mock-bookmarks";
 import { requireAuth } from "../../../../lib/supabase/require-auth";
 
 type BookmarkDetailPageProps = PageProps<"/app/bookmarks/[bookmarkId]">;
@@ -9,12 +7,8 @@ type BookmarkDetailPageProps = PageProps<"/app/bookmarks/[bookmarkId]">;
 export async function generateMetadata({
   params,
 }: BookmarkDetailPageProps): Promise<Metadata> {
-  const { bookmarkId } = await params;
-  const bookmark = mockBookmarks.find((item) => item.id === bookmarkId);
-
-  return {
-    title: bookmark ? `${bookmark.title} | ThinkPin` : "Bookmark | ThinkPin",
-  };
+  await params;
+  return { title: "Bookmark | ThinkPin" };
 }
 
 export default async function BookmarkDetailPage({
@@ -22,11 +16,5 @@ export default async function BookmarkDetailPage({
 }: BookmarkDetailPageProps) {
   await requireAuth();
   const { bookmarkId } = await params;
-  const bookmark = mockBookmarks.find((item) => item.id === bookmarkId);
-
-  if (!bookmark) {
-    return <SavedBookmarkDetail bookmarkId={bookmarkId} />;
-  }
-
-  return <MockBookmarkDetail bookmarkId={bookmark.id} />;
+  return <SavedBookmarkDetail bookmarkId={bookmarkId} />;
 }

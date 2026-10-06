@@ -1,27 +1,77 @@
 import { NextResponse } from "next/server";
-import { createBookmark } from "../../../lib/bookmarks/repository";
 import {
+  createBookmark,
   InvalidBookmarkUrlError,
-  validateBookmarkUrl,
-} from "../../../lib/bookmarks/validate-url";
+  listUserBookmarks,
+} from "../../../lib/bookmarks/service";
+import { inngest } from "../../../lib/inngest/client";
+import { bookmarkCreated } from "../../../lib/inngest/events";
+import { createAdminClient } from "../../../lib/supabase/admin";
 import { createClient } from "../../../lib/supabase/server";
+
+async function getAuthenticatedUser() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+    error: authError,
+  } = await supabase.auth.getUser();
+
+  if (
+    authError &&
+    authError.status !== 401 &&
+    authError.name !== "AuthSessionMissingError"
+  ) {
+    throw authError;
+  }
+
+  return { supabase, user };
+}
+
+export async function GET() {
+  try {
+    const { supabase, user } = await getAuthenticatedUser();
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication is required." },
+        { status: 401 },
+      );
+    }
+
+    const bookmarks = await listUserBookmarks(supabase, user.id);
+    return NextResponse.json({
+      bookmarks: bookmarks.map((bookmark) => ({
+        id: bookmark.id,
+        url: bookmark.url,
+        canonical_url: bookmark.canonicalUrl,
+        title: bookmark.title,
+        description: bookmark.description,
+        domain: bookmark.domain,
+        favicon_url: bookmark.faviconUrl,
+        image_url: bookmark.imageUrl,
+        content_type: bookmark.contentType,
+        intent: bookmark.intent,
+        is_favorite: bookmark.isFavorite,
+        is_archived: bookmark.isArchived,
+        is_read: bookmark.isRead,
+        content_status: bookmark.contentStatus,
+        created_at: bookmark.createdAt,
+        tags: bookmark.tags,
+        collection: bookmark.collection,
+        notes: bookmark.notes,
+      })),
+    });
+  } catch (error) {
+    console.error("Bookmark list failed.", error);
+    return NextResponse.json(
+      { error: "Bookmarks could not be loaded." },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (
-      authError &&
-      authError.status !== 401 &&
-      authError.name !== "AuthSessionMissingError"
-    ) {
-      throw authError;
-    }
-
+    const { supabase, user } = await getAuthenticatedUser();
     if (!user) {
       return NextResponse.json(
         { error: "Authentication is required." },
@@ -52,26 +102,26 @@ export async function POST(request: Request) {
       );
     }
 
-    let bookmarkUrl: ReturnType<typeof validateBookmarkUrl>;
-    try {
-      bookmarkUrl = validateBookmarkUrl(payload.url);
-    } catch (error) {
-      if (error instanceof InvalidBookmarkUrlError) {
-        return NextResponse.json({ error: error.message }, { status: 400 });
-      }
-      throw error;
-    }
-
-    const result = await createBookmark(supabase, {
-      ...bookmarkUrl,
-      userId: user.id,
-    });
+    const result = await createBookmark(
+      {
+        userClient: supabase,
+        userId: user.id,
+        createAdminClient,
+        publishCreated: async (bookmarkId, userId) => {
+          await inngest.send(
+            bookmarkCreated.create({ bookmarkId, userId }),
+          );
+        },
+      },
+      payload.url,
+    );
 
     if (result.duplicate) {
       return NextResponse.json(
         {
           code: "BOOKMARK_ALREADY_EXISTS",
           bookmarkId: result.bookmarkId,
+          processingQueued: result.processingQueued,
         },
         { status: 409 },
       );
@@ -82,14 +132,23 @@ export async function POST(request: Request) {
         bookmark: {
           id: result.bookmark.id,
           url: result.bookmark.url,
-          canonicalUrl: result.bookmark.canonical_url,
+          canonicalUrl: result.bookmark.canonicalUrl,
           domain: result.bookmark.domain,
-          contentStatus: result.bookmark.content_status,
+          title: result.bookmark.domain,
+          description: null,
+          contentStatus: result.processingQueued
+            ? result.bookmark.contentStatus
+            : "failed",
+          processingQueued: result.processingQueued,
         },
       },
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof InvalidBookmarkUrlError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
     console.error("Bookmark creation failed.", error);
     return NextResponse.json(
       { error: "Bookmark could not be saved." },

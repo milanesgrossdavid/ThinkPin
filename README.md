@@ -46,6 +46,46 @@ redirigen a sus equivalentes bajo `/app` para conservar enlaces existentes.
 Cuando la persona ya tiene sesión e intenta abrir `/login`, se le redirige a su
 destino interno solicitado o, por defecto, a `/app`.
 
+## Regla arquitectónica del backend
+
+Esta separación y la elección del adaptador de entrada son reglas del proyecto
+para toda funcionalidad que acceda a datos o implemente reglas de negocio:
+
+```text
+Web UI → Server Action ─────┐
+                             ├→ Service → Repository → Supabase/Postgres
+Cliente externo → Route Handler/API ┘
+Inngest/job → Service
+```
+
+- **Server Actions** son la entrada preferida para mutaciones iniciadas por la
+  UI de Next.js. Autentican y autorizan cada llamada, validan sus argumentos,
+  llaman al service y revalidan la ruta o tag necesario. No acceden a
+  repositories directamente. Toda llamada debe tratarse como entrada no
+  confiable, aunque el formulario o control esté en una ruta protegida.
+- **Route Handlers/API** son la entrada para clientes externos, integraciones y
+  webhooks: reciben HTTP, autentican o verifican la petición, validan su forma,
+  llaman al mismo service y convierten el resultado a HTTP. No contienen
+  consultas ni deciden reglas de negocio. Las lecturas de la UI deben preferir
+  Server Components; Route Handlers de lectura se mantienen cuando hacen falta
+  para polling, sincronización desde cliente o para ofrecer el contrato externo.
+- **Service** implementa los casos de uso y decide qué debe suceder. No importa
+  Next.js, no construye `Response`/`NextResponse` y no ejecuta consultas SQL.
+- **Repository** es la única capa de la funcionalidad que consulta o modifica
+  tablas de Supabase y traduce filas a los datos que consume el service.
+- **Ingestion/jobs** coordinan pasos durables o trabajo asíncrono y llaman a
+  services; no duplican reglas ni consultan tablas directamente.
+
+Para bookmarks, `src/app/actions/bookmarks.ts` ofrece la Server Action de
+guardado a la UI web; `src/app/api/bookmarks/route.ts` conserva el contrato HTTP
+para extensiones y otros clientes. Ambas llaman a
+`src/lib/bookmarks/service.ts`, que contiene los casos de uso, y
+`src/lib/bookmarks/repository.ts`, que centraliza el acceso a la tabla
+`bookmarks`. `src/lib/inngest/functions/` coordina el procesamiento asíncrono a
+través de esos mismos services. Web, extensiones, aplicaciones móviles y jobs
+reutilizan las reglas de negocio sin copiarlas. Añade capas o módulos cuando
+haya una responsabilidad real; no crees carpetas vacías.
+
 #### Google OAuth
 
 El botón Google de login y signup inicia `signInWithOAuth` y vuelve a
@@ -94,9 +134,54 @@ La base de datos garantiza unicidad por usuario tanto para `canonical_url`
 cuando está disponible como para `normalized_url`. Se busca primero una
 coincidencia canonical y luego una normalizada. Si ya existe, el endpoint
 responde `409` con `code: "BOOKMARK_ALREADY_EXISTS"` y `bookmarkId`; también
-resuelve carreras concurrentes de inserción. No se hace enriquecimiento
-asíncrono todavía: al integrar Inngest, el job se encolará después del guardado,
-sin hacer que un fallo de análisis pierda el bookmark.
+resuelve carreras concurrentes de inserción. Tras insertar un bookmark nuevo,
+el endpoint emite `bookmark.created` a Inngest con solo `bookmarkId` y
+`userId`; un error al encolar no elimina ni revierte el bookmark y se refleja
+como `content_status = failed`.
+
+#### CRUD y organización de bookmarks
+
+Las mutaciones de la UI web usan `src/app/actions/bookmarks.ts`. Cada acción
+obtiene la identidad desde la sesión de Supabase y delega en
+`src/lib/bookmarks/service.ts`; el repository aplica el filtro por `user_id`
+en todas las lecturas, actualizaciones y eliminaciones. Favoritos, estado leído,
+archivo, título, descripción e intención se guardan en `bookmarks`. Tags usan
+`tags` y `bookmark_tags`; la nota del bookmark se guarda en `notes`; moverlo a
+una colección actualiza `bookmark_collections`. El borrado elimina el bookmark
+de Supabase y los registros relacionados mediante las claves foráneas en
+cascada; no es un borrado reversible.
+
+`GET /api/bookmarks` sincroniza el cache de interfaz con bookmarks, tags,
+colección y nota guardados. `POST /api/bookmarks` continúa disponible para
+clientes externos y comparte el mismo service de creación que Smart Save.
+`PATCH /api/bookmarks/:bookmarkId` actualiza los mismos campos mediante el
+service de actualización; `DELETE /api/bookmarks/:bookmarkId` elimina el
+registro autenticado. Las cuatro operaciones externas aplican identidad del
+servidor y aislamiento RLS.
+El CRUD de colecciones como recurso independiente todavía no está conectado;
+la asociación de un bookmark con una colección sí se persiste.
+
+#### Ingestión asíncrona con Inngest
+
+`src/app/api/inngest/route.ts` registra el endpoint de Inngest y
+`src/lib/inngest/functions/bookmark-ingestion.ts` procesa `bookmark.created`.
+El workflow vuelve a leer el bookmark con el cliente administrativo de
+Supabase y mantiene pasos durables independientes para leer, marcar
+`processing`, extraer metadata y persistirla. Inngest puede reanudar los pasos
+que ya terminaron y reintenta hasta tres veces; al agotar los reintentos,
+`onFailure` marca el bookmark como `failed`. El bookmark original permanece
+guardado en todos los casos. Volver a guardar una URL cuyo procesamiento falló
+vuelve a encolar su ingestión.
+
+El primer workflow implementado finaliza al guardar metadata y establece
+`content_status = ready`. La extracción de contenido legible, clasificación,
+tags, chunks y embeddings todavía no está conectada y no se simula. En
+desarrollo, establece `INNGEST_DEV=1` en `.env.local` y reinicia Next.js.
+Ejecuta `pnpm dev` y, en otra terminal, el Inngest Dev Server:
+`pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest`.
+El Dev Server local recibe los eventos del endpoint `/api/inngest` y no
+requiere claves cloud. En producción no establezcas `INNGEST_DEV`; configura
+`INNGEST_EVENT_KEY` y `INNGEST_SIGNING_KEY`.
 
 #### Extracción de metadata
 
@@ -109,18 +194,19 @@ redirecciones; el User-Agent identifica al extractor. Errores de red, páginas
 bloqueadas, contenido no HTML o HTML incompleto producen metadata mínima, no
 un error que invalide el bookmark.
 
-Como el worker hará fetch a URLs de usuario, valida y fija la resolución DNS
+Como el worker hace fetch a URLs de usuario, valida y fija la resolución DNS
 para permitir únicamente direcciones IP públicas en cada salto, evitando
 accesos a servicios locales/privados y redirecciones hacia ellos. El extractor
-aún no está conectado a un job ni se ejecuta durante `POST /api/bookmarks`.
+corre solamente en el workflow de Inngest, nunca dentro de
+`POST /api/bookmarks`.
 
 La limpieza de URL y la canonicalización de página son pasos distintos:
 `src/lib/ingestion/normalize-url.ts` exporta `normalizeUrl()` para la forma
 determinística usada al guardar y deduplicar; `src/lib/ingestion/canonicalize-url.ts`
 exporta `canonicalizeUrl(url, metadataCanonicalUrl)`, que valida y normaliza la
-canonical declarada o devuelve la URL normalizada como fallback. Cuando se
-conecte el worker, puede actualizar `canonical_url` con ese resultado sin
-modificar `url` ni `normalized_url`. La restricción única por usuario protege
+canonical declarada o devuelve la URL normalizada como fallback. El worker
+actualiza `canonical_url` con ese resultado sin modificar `url` ni
+`normalized_url`. La restricción única por usuario protege
 ambas identidades: si el canonical anunciado ya pertenece a otro bookmark,
 la actualización debe conservar ambos y resolver el conflicto, nunca
 sobrescribir otro registro. `normalized_url` conserva la identidad de
@@ -133,11 +219,11 @@ normaliza Unicode, espacios y mayúsculas antes de calcular SHA-256; el hash se
 guarda en `content_documents.content_hash`, no se deriva de la URL ni del HTML
 bruto. `findContentDuplicate()` en `src/lib/ingestion/content-duplicates.ts`
 busca una coincidencia de hash solamente entre bookmarks del mismo usuario.
-Tras el procesamiento asíncrono, permite detectar contenido idéntico entre
-URLs distintas. Como el bookmark ya fue guardado, se conserva y no se elimina
-silenciosamente. La migración crea un índice no único porque un mismo contenido
-puede pertenecer a varios bookmarks. La detección aún no está conectada a un
-worker; embeddings se mantienen como posible duplicado para mostrar al usuario,
+Tras conectar la extracción de contenido al workflow, permitirá detectar
+contenido idéntico entre URLs distintas. Como el bookmark ya fue guardado, se
+conservará y no se eliminará silenciosamente. La migración crea un índice no
+único porque un mismo contenido puede pertenecer a varios bookmarks. Embeddings
+se mantienen como posibles duplicados para mostrar al usuario,
 nunca como motivo de bloqueo automático.
 
 #### Esquema inicial de datos y RLS
