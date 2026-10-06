@@ -4,8 +4,9 @@ export type Collection = {
   id: string;
   name: string;
   description?: string;
+  icon?: string;
+  color?: string;
   visibility: CollectionVisibility;
-  bookmarkCount: number;
   coverImageUrl?: string;
   createdAt: string;
   updatedAt?: string;

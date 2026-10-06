@@ -1,10 +1,17 @@
 export type * from "./activity";
+export type * from "./ai-usage";
 export type * from "./async";
 export type * from "./bookmark";
 export type * from "./collection";
+export type * from "./content-document";
 export type * from "./dashboard";
 export type * from "./library";
+export type * from "./link-check";
 export type * from "./note";
+export type * from "./reminder";
+export type * from "./research";
 export type * from "./search";
+export type * from "./subscription";
 export type * from "./tag";
 export type * from "./user";
+export type * from "./web-snapshot";

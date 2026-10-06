@@ -9,7 +9,7 @@ create table public.profiles (
 
 alter table public.profiles enable row level security;
 
-revoke all on public.profiles from anon, authenticated;
+revoke all on public.profiles from public, anon, authenticated;
 grant select on public.profiles to authenticated;
 grant update (name, username, avatar_url) on public.profiles to authenticated;
 
@@ -36,6 +36,9 @@ begin
   return new;
 end;
 $$;
+
+revoke execute on function public.set_profile_updated_at()
+  from public, anon, authenticated;
 
 create trigger set_profiles_updated_at
   before update on public.profiles

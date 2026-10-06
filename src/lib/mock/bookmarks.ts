@@ -185,6 +185,7 @@ const bookmarkSeeds: MockBookmarkSeed[] = [
 export const mockBookmarks: MockBookmark[] = bookmarkSeeds.map(
   ({ savedAt, savedDate, favorite, unread, ...bookmark }) => ({
     ...bookmark,
+    contentStatus: "ready",
     createdAt: `${savedDate}T12:00:00.000Z`,
     isFavorite: favorite,
     isArchived: false,

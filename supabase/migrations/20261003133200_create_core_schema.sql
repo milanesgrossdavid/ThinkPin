@@ -3,6 +3,7 @@ create table public.bookmarks (
   user_id uuid not null references auth.users(id) on delete cascade,
   url text not null,
   canonical_url text,
+  normalized_url text not null,
   title text not null,
   description text,
   domain text not null,
@@ -30,6 +31,9 @@ create table public.bookmarks (
 create unique index bookmarks_user_canonical_url_unique
   on public.bookmarks (user_id, canonical_url)
   where canonical_url is not null;
+
+create unique index bookmarks_user_normalized_url_unique
+  on public.bookmarks (user_id, normalized_url);
 
 create index bookmarks_user_created_at_idx
   on public.bookmarks (user_id, created_at desc);
@@ -148,13 +152,13 @@ alter table public.bookmark_tags enable row level security;
 alter table public.notes enable row level security;
 alter table public.bookmark_activity enable row level security;
 
-revoke all on public.bookmarks from anon, authenticated;
-revoke all on public.collections from anon, authenticated;
-revoke all on public.bookmark_collections from anon, authenticated;
-revoke all on public.tags from anon, authenticated;
-revoke all on public.bookmark_tags from anon, authenticated;
-revoke all on public.notes from anon, authenticated;
-revoke all on public.bookmark_activity from anon, authenticated;
+revoke all on public.bookmarks from public, anon, authenticated;
+revoke all on public.collections from public, anon, authenticated;
+revoke all on public.bookmark_collections from public, anon, authenticated;
+revoke all on public.tags from public, anon, authenticated;
+revoke all on public.bookmark_tags from public, anon, authenticated;
+revoke all on public.notes from public, anon, authenticated;
+revoke all on public.bookmark_activity from public, anon, authenticated;
 
 grant select, insert, update, delete on public.bookmarks to authenticated;
 grant select, insert, update, delete on public.collections to authenticated;

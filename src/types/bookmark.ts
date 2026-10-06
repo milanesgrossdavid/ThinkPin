@@ -24,23 +24,34 @@ export type BookmarkIntent =
   | "watch-later"
   | "other";
 
+export type BookmarkContentStatus =
+  | "pending"
+  | "processing"
+  | "ready"
+  | "failed";
+
 export type Bookmark = {
   id: string;
   url: string;
-  canonicalUrl?: string;
+  canonicalUrl?: string | null;
   title: string;
   description?: string;
   domain: string;
   faviconUrl?: string;
   imageUrl?: string;
   contentType: ContentType;
+  contentStatus: BookmarkContentStatus;
   intent?: BookmarkIntent;
+  purpose?: string;
   savedReason?: string;
+  readingTimeMinutes?: number;
+  wordCount?: number;
   isFavorite: boolean;
   isArchived: boolean;
   isRead?: boolean;
   createdAt: string;
   updatedAt?: string;
+  lastOpenedAt?: string;
 };
 
 export type BookmarkWithRelations = Bookmark & {
