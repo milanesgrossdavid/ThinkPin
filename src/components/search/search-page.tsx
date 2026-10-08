@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   ArrowRight,
   Command,
   LayoutGrid,
   List,
+  LoaderCircle,
   Search,
+  Send,
   Sparkles,
   Globe2,
 } from "lucide-react";
@@ -14,24 +16,44 @@ import { BookmarkGrid } from "../bookmarks/BookmarkGrid";
 import { BookmarkList } from "../bookmarks/BookmarkList";
 import type { BookmarkView, LibraryBookmark } from "../bookmarks/types";
 import {
-  getBookmarkDetailsSnapshot,
-  getBookmarksSnapshot,
-  getServerBookmarkDetailsSnapshot,
-  getServerBookmarksSnapshot,
-  loadSavedBookmarks,
-  readBookmarkDetailState,
-  subscribeToBookmarkDetails,
-  subscribeToBookmarks,
-} from "../../lib/bookmarks";
-import {
-  relatedTopics,
-  searchBookmarks,
   type SearchMode,
   type SearchState,
 } from "../../lib/search";
+import type { SearchBookmark } from "../../lib/search/types";
 import { useAppToast } from "../feedback/AppToaster";
 import { ErrorState } from "../feedback/ErrorState";
 import { BookmarkGridSkeleton, BookmarkSkeleton } from "../skeletons/app-skeletons";
+import { reindexMissingBookmarksAction } from "../../app/actions/search";
+import type { AskResponse } from "../../lib/ask/types";
+import { AskSourcesList } from "../ask/ask-sources-list";
+
+function isAskResponse(value: unknown): value is AskResponse {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "answer" in value &&
+    typeof value.answer === "string" &&
+    "query" in value &&
+    typeof value.query === "string" &&
+    "sources" in value &&
+    Array.isArray(value.sources) &&
+    value.sources.every(
+      (source) =>
+        typeof source === "object" &&
+        source !== null &&
+        "bookmarkId" in source &&
+        typeof source.bookmarkId === "string" &&
+        "title" in source &&
+        typeof source.title === "string" &&
+        "url" in source &&
+        typeof source.url === "string" &&
+        "domain" in source &&
+        typeof source.domain === "string" &&
+        "relevanceScore" in source &&
+        typeof source.relevanceScore === "number",
+    )
+  );
+}
 
 const searchSuggestions = [
   "Next.js authentication",
@@ -47,88 +69,43 @@ const modes: Array<{ id: SearchMode; label: string }> = [
   { id: "ai", label: "AI" },
 ];
 
-function toSavedLibraryBookmark(
-  bookmark: ReturnType<typeof loadSavedBookmarks>[number],
-): LibraryBookmark {
-  let contentType: LibraryBookmark["contentType"] = "article";
-  if (/github\.com$/i.test(bookmark.domain)) {
-    contentType = "repository";
-  } else if (/youtube\.com$|youtu\.be$/i.test(bookmark.domain)) {
-    contentType = "video";
-  } else if (/amazon\.|etsy\.|shop/i.test(bookmark.domain)) {
-    contentType = "product";
+function toLibraryBookmark(bookmark: SearchBookmark): LibraryBookmark {
+  let contentType: LibraryBookmark["contentType"] = "other";
+  switch (bookmark.contentType) {
+    case "article":
+    case "video":
+    case "repository":
+    case "product":
+    case "tool":
+    case "social":
+    case "document":
+    case "other":
+      contentType = bookmark.contentType;
+      break;
   }
 
   return {
-    ...bookmark,
-    topic: bookmark.collection === "Unsorted" ? "Saved links" : bookmark.collection,
+    id: bookmark.id,
+    title: bookmark.title,
+    description: bookmark.description ?? undefined,
+    topic: bookmark.collection ?? "Saved links",
     subtopic: bookmark.intent ?? "Saved",
+    tags: bookmark.tags,
+    domain: bookmark.domain,
+    url: bookmark.url,
+    savedAt: bookmark.createdAt,
     icon: Globe2,
     artwork: "from-primary/15 via-sky-500/10 to-transparent",
+    thumbnailUrl: bookmark.imageUrl ?? undefined,
     contentType,
-    favorite: bookmark.favorite ?? false,
-    unread: bookmark.unread ?? false,
-    savedDate: bookmark.savedAt.slice(0, 10),
-    searchTerms: [bookmark.collection, bookmark.intent ?? "", bookmark.url],
+    favorite: bookmark.isFavorite,
+    unread: !bookmark.isRead,
+    archived: bookmark.isArchived,
+    notes: bookmark.notes ?? undefined,
+    intent: bookmark.intent ?? undefined,
+    savedDate: bookmark.createdAt.slice(0, 10),
+    searchTerms: bookmark.matchedFields,
   };
-}
-
-function loadSearchData(
-  bookmarksSnapshot: string | null,
-  detailsSnapshot: string | null,
-) {
-  if (bookmarksSnapshot === null || detailsSnapshot === null) {
-    throw new Error("Browser storage is unavailable.");
-  }
-
-  const parsedDetails: unknown = JSON.parse(detailsSnapshot);
-  if (
-    !Array.isArray(parsedDetails) ||
-    !parsedDetails.every(
-      (entry) =>
-        Array.isArray(entry) &&
-        entry.length === 2 &&
-        typeof entry[0] === "string" &&
-        typeof entry[1] === "string",
-    )
-  ) {
-    throw new Error("Saved bookmark details are invalid.");
-  }
-
-  const details = new Map(
-    parsedDetails.map(([id, raw]: [string, string]) => [
-      id,
-      readBookmarkDetailState(raw),
-    ]),
-  );
-  const notesByBookmark: Record<string, string> = {};
-  details.forEach((detail, id) => {
-    if (detail.notes) {
-      notesByBookmark[id] = detail.notes;
-    }
-  });
-
-  const savedBookmarks = loadSavedBookmarks(bookmarksSnapshot).map(
-    toSavedLibraryBookmark,
-  );
-  const bookmarks = [...savedBookmarks]
-    .map((bookmark) => {
-      const detail = details.get(bookmark.id);
-      return {
-        ...bookmark,
-        title: detail?.title ?? bookmark.title,
-        description: detail?.description ?? bookmark.description,
-        topic: detail?.collection ?? bookmark.topic,
-        tags: detail?.tags ?? bookmark.tags,
-        intent: detail?.intent ?? bookmark.intent,
-        favorite: detail?.favorite ?? bookmark.favorite,
-        archived: detail?.archived ?? bookmark.archived,
-        deleted: detail?.deleted ?? false,
-      };
-    })
-    .filter((bookmark) => !bookmark.archived && !bookmark.deleted);
-
-  return { bookmarks, notesByBookmark };
 }
 
 export function SearchPage({
@@ -138,57 +115,93 @@ export function SearchPage({
   initialQuery?: string;
   initialMode?: SearchMode;
 }) {
-  const bookmarksSnapshot = useSyncExternalStore(
-    subscribeToBookmarks,
-    getBookmarksSnapshot,
-    getServerBookmarksSnapshot,
-  );
-  const detailsSnapshot = useSyncExternalStore(
-    subscribeToBookmarkDetails,
-    getBookmarkDetailsSnapshot,
-    getServerBookmarkDetailsSnapshot,
-  );
   const [query, setQuery] = useState(initialQuery);
   const [debouncedQuery, setDebouncedQuery] = useState(initialQuery);
   const [mode, setMode] = useState<SearchMode>(initialMode);
   const [view, setView] = useState<BookmarkView>("list");
   const [focused, setFocused] = useState(false);
   const [searchState, setSearchState] = useState<SearchState<LibraryBookmark>>({
-    query: initialQuery,
+    query: initialQuery.trim() && initialMode !== "ai" ? "" : initialQuery,
     results: [],
     topics: [],
     mode: initialMode,
   });
-  const [requestPending, setRequestPending] = useState(
-    Boolean(initialQuery.trim()) && initialMode !== "ai",
-  );
   const [searchError, setSearchError] = useState("");
   const [retryCount, setRetryCount] = useState(0);
+  const [reindexPending, startReindex] = useTransition();
+  const [aiResponse, setAiResponse] = useState<AskResponse | null>(null);
+  const [aiPending, setAiPending] = useState(false);
+  const aiRequestId = useRef(0);
   const toast = useAppToast();
+
+  async function askWithAI() {
+    const question = query.trim();
+    if (!question || aiPending) return;
+
+    const requestId = ++aiRequestId.current;
+    setAiResponse(null);
+    setSearchError("");
+    setAiPending(true);
+    try {
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const payload: unknown = await response.json();
+      if (!response.ok) {
+        const message =
+          typeof payload === "object" &&
+          payload !== null &&
+          "error" in payload &&
+          typeof payload.error === "string"
+            ? payload.error
+            : "Your library could not be queried right now.";
+        throw new Error(message);
+      }
+      if (!isAskResponse(payload)) {
+        throw new Error("The answer response was invalid.");
+      }
+      if (requestId === aiRequestId.current) {
+        setAiResponse(payload);
+      }
+    } catch (error) {
+      if (requestId === aiRequestId.current) {
+        setSearchError(
+          error instanceof Error
+            ? error.message
+            : "Your library could not be queried right now.",
+        );
+      }
+    } finally {
+      if (requestId === aiRequestId.current) {
+        setAiPending(false);
+      }
+    }
+  }
+
+  function queueMissingEmbeddings() {
+    startReindex(async () => {
+      const result = await reindexMissingBookmarksAction();
+      if (!result.ok) {
+        toast.error("Semantic indexing unavailable", result.error);
+        return;
+      }
+      toast.success(
+        result.queued > 0
+          ? `Queued ${result.queued} bookmarks for local indexing`
+          : "All bookmarks are already indexed",
+      );
+      if (result.queued > 0) {
+        setRetryCount((count) => count + 1);
+      }
+    });
+  }
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setDebouncedQuery(query), 300);
     return () => window.clearTimeout(timeout);
   }, [query]);
-
-  const { bookmarks, notesByBookmark, storageError } = useMemo(() => {
-    try {
-      const { bookmarks, notesByBookmark } = loadSearchData(
-        bookmarksSnapshot,
-        detailsSnapshot,
-      );
-      return { bookmarks, notesByBookmark, storageError: "" };
-    } catch (error) {
-      return {
-        bookmarks: [],
-        notesByBookmark: {},
-        storageError:
-          error instanceof Error
-            ? error.message
-            : "We couldn't load your library from this browser.",
-      };
-    }
-  }, [bookmarksSnapshot, detailsSnapshot]);
 
   useEffect(() => {
     let active = true;
@@ -198,77 +211,80 @@ export function SearchPage({
       };
     }
 
-    if (storageError) {
-      return () => {
-        active = false;
-      };
-    }
-
-    Promise.resolve()
-      .then(() => {
-        if (active) {
-          setRequestPending(true);
-          setSearchError("");
+    const controller = new AbortController();
+    const params = new URLSearchParams({
+      q: debouncedQuery,
+      mode,
+    });
+    fetch(`/api/search?${params}`, { signal: controller.signal })
+      .then(async (response) => {
+        const payload: unknown = await response.json();
+        if (!response.ok) {
+          const message =
+            typeof payload === "object" &&
+            payload !== null &&
+            "error" in payload &&
+            typeof payload.error === "string"
+              ? payload.error
+              : "Search could not be completed.";
+          throw new Error(message);
         }
-        const results = searchBookmarks(
-          bookmarks,
-          debouncedQuery,
-          mode,
-          notesByBookmark,
-        );
-        return {
-          query: debouncedQuery,
-          results,
-          topics: relatedTopics(results, debouncedQuery, mode),
-          mode,
+        if (
+          typeof payload !== "object" ||
+          payload === null ||
+          !("results" in payload) ||
+          !Array.isArray(payload.results) ||
+          !("relatedTopics" in payload) ||
+          !Array.isArray(payload.relatedTopics)
+        ) {
+          throw new Error("Search returned an invalid response.");
+        }
+        return payload as {
+          results: SearchBookmark[];
+          relatedTopics: string[];
         };
       })
       .then((result) => {
         if (active) {
-          setSearchState(result);
+          setSearchError("");
+          setSearchState({
+            query: debouncedQuery,
+            results: result.results.map(toLibraryBookmark),
+            topics: result.relatedTopics,
+            mode,
+          });
         }
       })
-      .catch(() => {
-        if (active) {
+      .catch((error: unknown) => {
+        if (active && !(error instanceof DOMException && error.name === "AbortError")) {
           setSearchState({
             query: debouncedQuery,
             results: [],
             topics: [],
             mode,
           });
-          setSearchError("Try again in a moment.");
+          setSearchError(
+            error instanceof Error ? error.message : "Try again in a moment.",
+          );
           toast.error(
             "Something went wrong",
             "We couldn't search your library.",
           );
         }
-      })
-      .finally(() => {
-        if (active) {
-          setRequestPending(false);
-        }
       });
 
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [
-    bookmarks,
-    debouncedQuery,
-    mode,
-    notesByBookmark,
-    retryCount,
-    storageError,
-    toast,
-  ]);
+  }, [debouncedQuery, mode, retryCount, toast]);
 
   const hasQuery = Boolean(query.trim());
   const isSearching =
     hasQuery &&
     mode !== "ai" &&
     query === debouncedQuery &&
-    (requestPending ||
-      searchState.query !== debouncedQuery ||
+    (searchState.query !== debouncedQuery ||
       searchState.mode !== mode);
   const isDebouncing = hasQuery && query !== debouncedQuery;
 
@@ -314,8 +330,23 @@ export function SearchPage({
             <input
               autoFocus
               type="search"
+              maxLength={1_000}
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                if (mode === "ai") {
+                  aiRequestId.current += 1;
+                  setAiPending(false);
+                  setAiResponse(null);
+                  setSearchError("");
+                }
+              }}
+              onKeyDown={(event) => {
+                if (mode === "ai" && event.key === "Enter") {
+                  event.preventDefault();
+                  void askWithAI();
+                }
+              }}
               onFocus={() => setFocused(true)}
               onBlur={() => window.setTimeout(() => setFocused(false), 150)}
               placeholder="Search your memory..."
@@ -325,6 +356,27 @@ export function SearchPage({
               ⌘ K
             </kbd>
           </label>
+
+          {mode === "ai" && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                disabled={!query.trim() || aiPending}
+                onClick={() => void askWithAI()}
+                className="inline-flex min-h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {aiPending ? (
+                  <LoaderCircle
+                    aria-hidden="true"
+                    className="size-4 animate-spin"
+                  />
+                ) : (
+                  <Send aria-hidden="true" className="size-4" />
+                )}
+                Ask AI
+              </button>
+            </div>
+          )}
 
           {focused && !hasQuery && (
             <div className="mt-3 rounded-2xl border border-border/60 bg-surface-elevated p-4 shadow-sm sm:p-5">
@@ -365,7 +417,14 @@ export function SearchPage({
                 key={searchMode.id}
                 type="button"
                 aria-pressed={mode === searchMode.id}
-                onClick={() => setMode(searchMode.id)}
+                onClick={() => {
+                  setSearchState((current) => ({ ...current, query: "" }));
+                  aiRequestId.current += 1;
+                  setAiPending(false);
+                  setAiResponse(null);
+                  setSearchError("");
+                  setMode(searchMode.id);
+                }}
                 className={`min-h-8 rounded-full px-3 text-xs font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
                   mode === searchMode.id
                     ? "bg-surface-elevated text-text shadow-sm"
@@ -376,11 +435,6 @@ export function SearchPage({
                   <Sparkles aria-hidden="true" className="mr-1 inline size-3" />
                 )}
                 {searchMode.label}
-                {searchMode.id === "ai" && (
-                  <span className="ml-1 text-[9px] text-text-muted">
-                    Soon
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -417,6 +471,22 @@ export function SearchPage({
           )}
         </div>
 
+        {mode === "semantic" && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              disabled={reindexPending}
+              onClick={queueMissingEmbeddings}
+              className="min-h-9 rounded-full border border-border bg-surface-elevated px-4 text-xs font-medium text-text-muted transition-colors hover:text-primary disabled:cursor-wait disabled:opacity-60"
+            >
+              {reindexPending ? "Queueing local indexing…" : "Index saved bookmarks"}
+            </button>
+            <p className="text-xs text-text-muted">
+              Queues bookmarks without embeddings for processing by your configured provider.
+            </p>
+          </div>
+        )}
+
         {!hasQuery ? (
           <section className="mt-10 max-w-3xl sm:mt-14">
             <h2 className="text-xl font-semibold tracking-[-0.03em] text-text">
@@ -446,37 +516,43 @@ export function SearchPage({
             </div>
           </section>
         ) : mode === "ai" ? (
-          <section className="mt-8 rounded-3xl border border-border/60 bg-surface-elevated p-5 sm:p-7">
-            <div className="flex items-center gap-2 text-primary">
-              <Sparkles aria-hidden="true" className="size-4" />
-              <h2 className="text-sm font-semibold">AI Search</h2>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-text-muted">
-              AI answers with cited sources are coming soon. Your bookmarks
-              remain searchable in Keyword, Full-text, and Semantic modes.
-            </p>
-            <button
-              type="button"
-              onClick={() => setMode("semantic")}
-              className="mt-4 text-sm font-medium text-primary hover:underline"
-            >
-              Search semantically instead
-            </button>
+          <section className="mt-8" aria-labelledby="ai-search-title">
+            {searchError ? (
+              <p
+                role="alert"
+                className="mt-5 rounded-2xl border border-error/30 bg-error/5 p-4 text-sm leading-6 text-text"
+              >
+                {searchError}
+              </p>
+            ) : aiPending ? (
+              <div
+                role="status"
+                aria-busy="true"
+                className="mt-8 flex items-center justify-center gap-3 text-sm text-text-muted"
+              >
+                <LoaderCircle
+                  aria-hidden="true"
+                  className="size-4 animate-spin text-primary"
+                />
+                Searching your saved library…
+              </div>
+            ) : aiResponse ? (
+              <AskSourcesList sources={aiResponse.sources} />
+            ) : (
+              <p className="mt-6 text-center text-sm text-text-muted">
+                Enter a question above and choose “Ask AI” to find matching
+                bookmarks.
+              </p>
+            )}
           </section>
-        ) : storageError || (searchError && !isSearching) ? (
+        ) : searchError && !isSearching ? (
           <div className="mt-8">
             <ErrorState
               title="Something went wrong"
-              description={
-                storageError ||
-                searchError ||
-                "We couldn't search your library."
-              }
+              description={searchError || "We couldn't search your library."}
               onRetry={() => {
-                if (storageError) {
-                  window.location.reload();
-                  return;
-                }
+                setSearchError("");
+                setSearchState((current) => ({ ...current, query: "" }));
                 setRetryCount((count) => count + 1);
               }}
             />
@@ -573,7 +649,9 @@ export function SearchPage({
                     &quot;{searchState.query}&quot;
                   </p>
                   <p className="mt-2 text-sm text-text-muted">
-                    Try another search.
+                    {mode === "semantic"
+                      ? "Semantic search only finds bookmarks with embeddings. Use “Index saved bookmarks” above if this is your first search, or try different terms."
+                      : "Try another search."}
                   </p>
                   {mode !== "semantic" && (
                     <button

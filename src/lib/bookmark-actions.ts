@@ -13,13 +13,23 @@ import {
 
 export type BookmarkActions = {
   setFavorite: (bookmarkId: string, favorite: boolean) => Promise<boolean>;
-  setUnread: (bookmarkId: string, unread: boolean) => Promise<boolean>;
+  setUnread: (
+    bookmarkId: string,
+    unread: boolean,
+    notifyUser?: boolean,
+  ) => Promise<boolean>;
   setArchived: (bookmarkId: string, archived: boolean) => Promise<boolean>;
   updateDetails: (
     bookmarkId: string,
     updates: Pick<
       BookmarkDetailState,
-      "title" | "description" | "collection" | "tags" | "intent" | "notes"
+      | "title"
+      | "description"
+      | "collection"
+      | "tags"
+      | "intent"
+      | "notes"
+      | "savedReason"
     >,
   ) => Promise<boolean>;
   setDeleted: (bookmarkId: string, deleted: boolean) => Promise<boolean>;
@@ -49,6 +59,9 @@ export function createBookmarkActions(notify: Notify): BookmarkActions {
           ...(updates.title !== undefined ? { title: updates.title } : {}),
           ...(updates.description !== undefined
             ? { description: updates.description }
+            : {}),
+          ...(updates.savedReason !== undefined
+            ? { savedReason: updates.savedReason }
             : {}),
           ...(updates.collection !== undefined
             ? { collection: updates.collection }
@@ -90,11 +103,15 @@ export function createBookmarkActions(notify: Notify): BookmarkActions {
         favorite ? "Added to favorites" : "Removed from favorites",
       );
     },
-    setUnread(bookmarkId, unread) {
+    setUnread(bookmarkId, unread, notifyUser = true) {
       return update(
         bookmarkId,
         { unread },
-        unread ? "Marked as unread" : "Marked as read",
+        notifyUser
+          ? unread
+            ? "Marked as unread"
+            : "Marked as read"
+          : null,
       );
     },
     setArchived(bookmarkId, archived) {
@@ -114,6 +131,7 @@ export function createBookmarkActions(notify: Notify): BookmarkActions {
             : "Note removed"
           : updates.title ||
               updates.description !== undefined ||
+              updates.savedReason !== undefined ||
               updates.intent !== undefined
             ? "Changes saved"
             : updates.collection

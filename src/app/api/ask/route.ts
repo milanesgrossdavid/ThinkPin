@@ -1,0 +1,91 @@
+import { NextResponse } from "next/server";
+import { askUserLibrary, InvalidAskQuestionError } from "../../../lib/ask/service";
+import { AskSearchIndexUnavailableError } from "../../../lib/ask/repository";
+import { AIProviderUnavailableError } from "../../../lib/ai/types";
+import { createAdminClient } from "../../../lib/supabase/admin";
+import { createClient } from "../../../lib/supabase/server";
+import {
+  SupabaseAuthUnavailableError,
+  throwIfSupabaseAuthUnavailable,
+} from "../../../lib/supabase/auth-errors";
+
+export async function POST(request: Request) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+    throwIfSupabaseAuthUnavailable(authError);
+    if (
+      authError &&
+      authError.status !== 401 &&
+      authError.name !== "AuthSessionMissingError"
+    ) {
+      throw authError;
+    }
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication is required." },
+        { status: 401 },
+      );
+    }
+
+    let input: unknown;
+    try {
+      input = await request.json();
+    } catch {
+      return NextResponse.json(
+        { error: "Request body must be valid JSON." },
+        { status: 400 },
+      );
+    }
+    if (
+      typeof input !== "object" ||
+      input === null ||
+      !("question" in input)
+    ) {
+      return NextResponse.json(
+        { error: "A question is required." },
+        { status: 400 },
+      );
+    }
+
+    const response = await askUserLibrary(
+      supabase,
+      createAdminClient(),
+      user.id,
+      input.question,
+    );
+    return NextResponse.json(response);
+  } catch (error) {
+    if (error instanceof SupabaseAuthUnavailableError) {
+      console.warn("Ask Your Library could not reach Supabase Auth.");
+      return NextResponse.json(
+        { error: "Authentication is temporarily unavailable. Please try again." },
+        { status: 503 },
+      );
+    }
+    if (error instanceof InvalidAskQuestionError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof AskSearchIndexUnavailableError) {
+      console.error("Ask Your Library database migration is missing.", error);
+      return NextResponse.json(
+        { error: error.message, code: "ASK_SCHEMA_UNAVAILABLE" },
+        { status: 503 },
+      );
+    }
+    if (error instanceof AIProviderUnavailableError) {
+      return NextResponse.json(
+        { error: error.message, code: "AI_PROVIDER_UNAVAILABLE" },
+        { status: 503 },
+      );
+    }
+    console.error("Ask Your Library request failed.", error);
+    return NextResponse.json(
+      { error: "Your library could not be queried right now." },
+      { status: 500 },
+    );
+  }
+}

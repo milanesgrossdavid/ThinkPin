@@ -6,6 +6,8 @@ type BookmarkListProps = {
   labelledBy?: string;
   id?: string;
   variant?: Exclude<BookmarkView, "grid">;
+  hideDescription?: boolean;
+  hideSavedDate?: boolean;
 };
 
 export function BookmarkList({
@@ -13,6 +15,8 @@ export function BookmarkList({
   labelledBy,
   id,
   variant = "list",
+  hideDescription = false,
+  hideSavedDate = false,
 }: BookmarkListProps) {
   return (
     <ul
@@ -27,6 +31,8 @@ export function BookmarkList({
           <BookmarkCard
             bookmark={bookmark}
             variant={variant}
+            hideDescription={hideDescription}
+            hideSavedDate={hideSavedDate}
           />
         </li>
       ))}

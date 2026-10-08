@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent, type MouseEve
 import { Link2, LoaderCircle, X } from "lucide-react";
 import {
   cacheServerBookmark,
+  notifyBookmarkSaved,
   normalizeBookmarkUrl,
   type SavedBookmark,
 } from "../../lib/bookmarks";
@@ -20,7 +21,7 @@ type BookmarkPreview = {
 function toSavedBookmark(
   record: BookmarkDetail | CreatedBookmark,
 ): SavedBookmark {
-  return cacheServerBookmark({
+  const bookmark = cacheServerBookmark({
     id: record.id,
     url: record.url,
     domain: record.domain,
@@ -32,6 +33,8 @@ function toSavedBookmark(
     contentStatus: record.contentStatus,
     createdAt: "createdAt" in record ? record.createdAt : undefined,
   });
+  notifyBookmarkSaved(bookmark.id);
+  return bookmark;
 }
 
 export function SmartSaveDialog() {
@@ -196,7 +199,8 @@ export function SmartSaveDialog() {
               Save something
             </h2>
             <p className="mt-1.5 text-sm leading-6 text-text-muted">
-              Save a link now. Page details are processed in the background.
+              Save a link now. Page details and optional local AI tags are
+              prepared in the background.
             </p>
           </div>
           <button
@@ -272,7 +276,8 @@ export function SmartSaveDialog() {
                 {preview.url}
               </p>
               <p className="mt-2 text-xs leading-5 text-text-muted">
-                Metadata will be fetched after this link is saved.
+                Page metadata and optional local AI suggestions will be
+                prepared after this link is saved.
               </p>
             </article>
           )}

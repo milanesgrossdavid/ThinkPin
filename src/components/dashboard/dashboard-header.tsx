@@ -1,4 +1,4 @@
-import { Search } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DashboardAccountButton } from "./dashboard-account-button";
 
@@ -38,6 +38,15 @@ export function DashboardHeader() {
               <kbd className="hidden shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-text-muted sm:inline-flex">
                 ⌘ K
               </kbd>
+            </Link>
+
+            <Link
+              href="/app/ask"
+              aria-label="Ask your library"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:px-4 sm:text-sm"
+            >
+              <Sparkles aria-hidden="true" className="size-4" />
+              <span>Ask</span>
             </Link>
 
             <DashboardAccountButton />

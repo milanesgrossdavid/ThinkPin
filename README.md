@@ -30,6 +30,14 @@ páginas también validan sus claims en el servidor con `auth.getClaims()`. No
 pongas claves secretas ni `service_role` en variables
 `NEXT_PUBLIC_*`.
 
+Si `auth.getUser()` devuelve `AuthRetryableFetchError` o `fetch failed`,
+comprueba que el proyecto esté activo en Supabase y que el host de
+`NEXT_PUBLIC_SUPABASE_URL` coincida con el Project URL de Settings → API.
+Verifica también que la red, VPN o firewall permita conexiones HTTPS al
+proyecto. Los endpoints protegidos devuelven `503` durante una indisponibilidad
+de Supabase Auth, en lugar de tratarla como una sesión ausente o un error
+interno.
+
 El callback `/auth/callback` intercambia el `code` PKCE una sola vez usando
 `exchangeCodeForSession`. Si el código falta, expiró o no es válido, devuelve al
 login con un error recuperable. El parámetro `next` solo acepta rutas internas;
@@ -85,6 +93,80 @@ para extensiones y otros clientes. Ambas llaman a
 través de esos mismos services. Web, extensiones, aplicaciones móviles y jobs
 reutilizan las reglas de negocio sin copiarlas. Añade capas o módulos cuando
 haya una responsabilidad real; no crees carpetas vacías.
+
+### Regla arquitectónica de IA
+
+Las funcionalidades trabajan con interfaces de proveedor y seleccionan la
+implementación mediante el AI Router; no importan SDKs de proveedores ni
+codifican nombres de proveedor fuera de `src/lib/ai/providers/` y su
+configuración:
+
+```text
+Service / Inngest → AI Router → AIProvider → provider adapter
+```
+
+El router resuelve proveedor por tarea desde configuración, valida que la
+capacidad esté disponible y devuelve errores explícitos si no hay una
+implementación configurada. No hay fallback automático ni balanceo hasta que
+haya otro proveedor real y una política definida. Los resultados conservan
+provider/model/usage como metadata operativa, sin acoplar las reglas de negocio
+a esos valores. Se agregan capacidades como clasificación, resumen, tags o
+respuestas solo cuando se implementen, con contratos tipados dentro de esta
+frontera.
+
+La capacidad actual es `embedding`: `AIProvider` define su contrato en
+`src/lib/ai/types.ts`, `src/lib/ai/router.ts` elige la implementación configurada
+por `AI_EMBEDDING_PROVIDER`. `src/lib/ai/providers/openai.ts` es el adaptador
+de pago y `src/lib/ai/providers/ollama.ts` ofrece embeddings locales gratuitos
+con `nomic-embed-text`. `bookmark-ingestion` y `searchService` llaman al router,
+no al SDK ni al endpoint directo del proveedor.
+
+El proveedor por defecto es `disabled`: Keyword/Full-text siguen disponibles y
+no se llama a proveedores de IA ni se generan cargos. No hay fallback
+automático. Habilita explícitamente `ollama` o `openai` cuando quieras usar
+embeddings.
+
+La columna pgvector actual tiene 1536 dimensiones. Todo proveedor seleccionado
+para embeddings debe producir vectores de esa dimensión; cambiar a un modelo
+con dimensiones distintas requiere una migración/versionado de embeddings y
+reindexación, no solo cambiar una variable de entorno. El adaptador local
+valida los 768 componentes de Ollama y completa con ceros hasta 1536; esto
+conserva las similitudes coseno y permite mantener el esquema actual.
+
+#### Smart Save con IA local
+
+Smart Save obtiene el título, la descripción disponible, la imagen Open Graph,
+el favicon y la URL canonical directamente de la página. Cuando se activa
+`AI_BOOKMARK_ENRICHMENT_PROVIDER=ollama`, Inngest también usa un modelo local
+de chat para mejorar el título, escribir una descripción resumida, sugerir tags
+y tipo/intención, generar una explicación del valor de guardar el enlace y
+elegir la colección con mejor encaje entre las colecciones predeterminadas y
+las del usuario. La explicación es una sugerencia basada en el contenido, no
+una afirmación sobre la motivación personal del usuario. La imagen nunca se
+inventa ni se genera con IA: se conserva la URL de imagen extraída del sitio.
+La generación de IA y la escritura de chunks se ejecutan en paralelo después
+de extraer la página para reducir el tiempo de procesamiento.
+
+El modelo de embeddings `nomic-embed-text` no genera texto. Instala un modelo
+de chat aparte y configura su nombre en `OLLAMA_TEXT_MODEL`, por ejemplo:
+
+```bash
+ollama pull llama3.2:3b
+```
+
+En `.env.local`:
+
+```dotenv
+AI_BOOKMARK_ENRICHMENT_PROVIDER=ollama
+AI_ANSWER_PROVIDER=ollama
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_TEXT_MODEL=llama3.2:3b
+```
+
+Reinicia Next.js después de cambiar las variables. El contenido de página se
+envía únicamente al Ollama local; si Ollama o el modelo no están disponibles,
+se conserva el bookmark y continúa la extracción/indexación determinística.
+El error del paso opcional de IA se registra en el servidor.
 
 #### Google OAuth
 
@@ -171,11 +253,18 @@ Supabase y mantiene pasos durables independientes para leer, marcar
 que ya terminaron y reintenta hasta tres veces; al agotar los reintentos,
 `onFailure` marca el bookmark como `failed`. El bookmark original permanece
 guardado en todos los casos. Volver a guardar una URL cuyo procesamiento falló
-vuelve a encolar su ingestión.
+vuelve a encolar su ingestión. Con el enriquecimiento local activado, volver a
+guardar un bookmark listo que todavía no tenga tags también encola la ingestión
+para generar sus sugerencias.
 
-El primer workflow implementado finaliza al guardar metadata y establece
-`content_status = ready`. La extracción de contenido legible, clasificación,
-tags, chunks y embeddings todavía no está conectada y no se simula. En
+El workflow extrae metadata y texto legible en pasos reintentables y persiste
+documentos y chunks idempotentes. Con
+`AI_EMBEDDING_PROVIDER=disabled`, omite embeddings sin fallar la ingestión;
+documentos y chunks siguen disponibles para FTS. Con
+`ollama`, genera vectores localmente; con `openai`, configura
+`OPENAI_API_KEY` para usar el proveedor de pago. Nunca expongas esa clave con
+una variable `NEXT_PUBLIC_*`. El bookmark se marca como listo cuando termina el
+procesamiento seleccionado. En
 desarrollo, establece `INNGEST_DEV=1` en `.env.local` y reinicia Next.js.
 Ejecuta `pnpm dev` y, en otra terminal, el Inngest Dev Server:
 `pnpm dlx inngest-cli@latest dev -u http://localhost:3000/api/inngest`.
@@ -183,13 +272,98 @@ El Dev Server local recibe los eventos del endpoint `/api/inngest` y no
 requiere claves cloud. En producción no establezcas `INNGEST_DEV`; configura
 `INNGEST_EVENT_KEY` y `INNGEST_SIGNING_KEY`.
 
+#### Búsqueda PostgreSQL y pgvector
+
+La búsqueda de `/app/search` consulta el servidor autenticado; el navegador ya
+no busca en el cache local. `GET /api/search?q=...&mode=...` llama al search
+service y repository. `keyword` usa PostgreSQL Full Text Search en título y
+dominio; `full-text` combina vectores ponderados en título (A), tags (A),
+descripción/dominio (B), notas (B) y contenido (C). `semantic` genera el
+embedding de la consulta mediante el proveedor configurado y recupera los
+chunks más cercanos mediante pgvector. La función SQL limita cada consulta al usuario
+autenticado y aplica filtros opcionales de tipo, favorito, lectura, colección,
+tag y fecha antes de ordenar resultados.
+
+Aplica `supabase/migrations/20261006180000_add_bookmark_search.sql` después de
+las migraciones previas. Crea índices GIN para FTS, una columna vectorial de
+1536 dimensiones y su índice HNSW. Los bookmarks existentes necesitan volver a
+pasar por el workflow de Inngest para generar contenido y embeddings; los
+bookmarks nuevos lo hacen al guardarse. Ask Your Library está disponible en
+`/app/ask` y mantiene la generación de respuestas separada de la búsqueda; ver
+su configuración y límites en la sección siguiente.
+
+Para habilitar embeddings locales en macOS:
+
+1. Instala Ollama desde [ollama.com/download](https://ollama.com/download) y
+   abre la aplicación para iniciar su servicio local.
+2. Descarga el modelo con `ollama pull nomic-embed-text`.
+3. En `.env.local`, define `AI_EMBEDDING_PROVIDER=ollama` y, si hace falta,
+   `OLLAMA_BASE_URL=http://127.0.0.1:11434`.
+4. Reinicia Next.js y el Inngest Dev Server; comprueba el modelo con
+   `ollama list`.
+5. En `/app/search`, selecciona `Semantic` y pulsa **Index saved bookmarks**
+   para volver a encolar en lotes de hasta 10 los bookmarks sin embeddings.
+   Mantén el Inngest Dev Server en ejecución hasta que termine el procesamiento.
+   Los bookmarks nuevos se vectorizan automáticamente durante su ingestión;
+   mientras se reindexan los existentes, Keyword y Full-text siguen operativos.
+
+El adaptador local solo permite conexiones loopback para no enviar el contenido
+de bookmarks a otra máquina. Este modo sirve para desarrollo con Next.js e
+Inngest en el mismo equipo; una app desplegada remotamente no puede conectarse
+al Ollama de tu computadora mediante `localhost`.
+
+#### Ask Your Library
+
+`/app/ask` responde preguntas usando exclusivamente fragmentos de los bookmarks
+del usuario. `POST /api/ask` genera el embedding de la pregunta, recupera
+fragmentos con FTS + pgvector, limita el contexto a un máximo de ocho fragmentos
+y cinco bookmarks (dos fragmentos por bookmark), y llama al proveedor `answer`
+del AI Router. Las fuentes se construyen desde los resultados autenticados de
+PostgreSQL; nunca las genera el modelo. Si no hay coincidencias, devuelve una
+respuesta de insuficiencia sin invocar el modelo.
+
+Para usarlo localmente, habilita `AI_EMBEDDING_PROVIDER=ollama`,
+`AI_ANSWER_PROVIDER=ollama` (si no se define, usa
+`AI_BOOKMARK_ENRICHMENT_PROVIDER`) y `OLLAMA_TEXT_MODEL=llama3.2:3b`. Los
+bookmarks necesitan contenido extraído para FTS; embeddings activan la parte
+semántica del híbrido. Vuelve a indexar los existentes desde `/app/search` y
+mantén Inngest en ejecución. Aplica
+`supabase/migrations/20261007195000_add_ask_library.sql` después de las
+migraciones previas. La recuperación combina búsqueda de texto completo,
+similitud vectorial y Reciprocal Rank Fusion, restringe el resultado al usuario
+autenticado y excluye bookmarks archivados. Aplica también
+`supabase/migrations/20261007210000_fix_ask_chunk_retrieval.sql`: permite buscar
+chunks incluso cuando la indexación de embeddings falló, y divide preguntas en
+tokens relevantes para ampliar la búsqueda FTS sin forzar coincidencias con
+cada palabra de una pregunta en lenguaje natural. Aplica también
+`supabase/migrations/20261008103000_include_bookmark_metadata_in_ask.sql`: añade
+recuperación desde título, URL, dominio, descripción y tipo del bookmark, para
+preguntas sobre categorías de recursos como repositorios de GitHub incluso si
+el sitio no se pudo indexar.
+Aplica también
+`supabase/migrations/20261008100000_normalize_ai_usage_token_counts.sql`
+para convertir contadores nulos de clientes o procesos antiguos a cero antes
+de las restricciones `NOT NULL`.
+
+En `/app/ask` también puedes elegir **Global web search** para encontrar
+recomendaciones en Internet. Los resultados incluyen título, descripción y
+enlace, y cada uno se puede guardar en tu biblioteca. Este modo usa Tavily:
+configura una API key en `TAVILY_API_KEY` en el entorno del servidor (por
+ejemplo, `.env.local` en desarrollo). La clave no debe llevar el prefijo
+`NEXT_PUBLIC_`. La búsqueda requiere conexión a Internet y está sujeta a las
+cuotas vigentes del nivel gratuito de Tavily. Si falta la clave, la interfaz
+mostrará un error de configuración.
+
 #### Extracción de metadata
 
 `src/lib/ingestion/metadata.ts` exporta `extractMetadata(url)`, un extractor
 independiente de Supabase que devuelve título, descripción, imagen, nombre del
 sitio, favicon y canonical URL. Prefiere Open Graph, resuelve URLs relativas
 contra la URL final tras redirecciones y usa el hostname como título de
-fallback. La petición tiene timeout, límite de tamaño y cantidad de
+fallback. También consulta YouTube oEmbed para obtener el título y creador
+reales de videos y usa su thumbnail de alta calidad como fallback; para otras
+páginas busca imágenes en Open Graph, Twitter Cards y metadatos `itemprop`.
+La petición tiene timeout, límite de tamaño y cantidad de
 redirecciones; el User-Agent identifica al extractor. Errores de red, páginas
 bloqueadas, contenido no HTML o HTML incompleto producen metadata mínima, no
 un error que invalide el bookmark.
@@ -286,9 +460,10 @@ opcionales. `content_chunks` guarda trozos ordenados por
 `chunk_index`, con unicidad por documento y métricas opcionales de tokens.
 
 Ambas tablas tienen RLS: el acceso se verifica recorriendo la relación hasta el
-bookmark y su propietario. No se añadió `user_id` redundante, columna `vector`
-ni índice vectorial; la dimensión del embedding debe elegirse con el modelo de
-embeddings. Los tipos de dominio están en `src/types/content-document.ts`.
+bookmark y su propietario. La migración original no añade `user_id` redundante
+ni vectores; la migración posterior de búsqueda agrega embeddings de 1536
+dimensiones y el índice vectorial. Los tipos de dominio están en
+`src/types/content-document.ts`.
 
 #### Research V1
 
@@ -348,8 +523,9 @@ historial por usuario/fecha, análisis por acción y búsquedas por request ID.
 
 RLS permite a cada usuario leer solo sus registros; `authenticated` no recibe
 permisos de escritura. Solo `service_role` puede insertar consumos, desde un
-servicio confiable del servidor. No implementa todavía proveedor de IA,
-facturación ni límites de créditos. El tipo de dominio está en
+servicio confiable del servidor. El workflow registra tokens usados para
+embeddings de contenido y las consultas semánticas. Todavía no se calcula el
+costo monetario ni se aplican límites de créditos. El tipo de dominio está en
 `src/types/ai-usage.ts`.
 
 #### Suscripciones y Stripe

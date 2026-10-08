@@ -23,11 +23,13 @@ export type Bookmark = {
     | "tool"
     | "social"
     | "document"
+    | "image"
     | "other";
   favorite?: boolean;
   unread?: boolean;
   archived?: boolean;
   notes?: string;
+  savedReason?: string;
   intent?: string;
   savedDate?: string;
 };

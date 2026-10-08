@@ -8,6 +8,17 @@ export type BookmarkIntent =
   | "Project"
   | "Inspiration";
 
+export type BookmarkContentType =
+  | "article"
+  | "video"
+  | "repository"
+  | "product"
+  | "tool"
+  | "social"
+  | "document"
+  | "image"
+  | "other";
+
 export type BookmarkDetailActivity = {
   action: string;
   at: string;
@@ -21,6 +32,8 @@ export type BookmarkDetailState = {
   archived?: boolean;
   deleted?: boolean;
   notes?: string;
+  savedReason?: string;
+  contentType?: BookmarkContentType;
   intent?: BookmarkIntent;
   collection?: string;
   tags?: string[];
@@ -41,6 +54,8 @@ export type SavedBookmark = {
   faviconUrl?: string | null;
   contentStatus?: "pending" | "processing" | "ready" | "failed";
   notes?: string;
+  savedReason?: string;
+  contentType?: BookmarkContentType;
   intent?: BookmarkIntent;
   favorite?: boolean;
   archived?: boolean;
@@ -56,8 +71,45 @@ const bookmarkIntents: BookmarkIntent[] = [
   "Project",
   "Inspiration",
 ];
+const bookmarkContentTypes: BookmarkContentType[] = [
+  "article",
+  "video",
+  "repository",
+  "product",
+  "tool",
+  "social",
+  "document",
+  "image",
+  "other",
+];
 const bookmarksChangedEvent = "thinkpin:bookmarks-change";
 const bookmarkDetailChangedEvent = "thinkpin:bookmark-detail-change";
+export const bookmarkSavedEvent = "thinkpin:bookmark-saved";
+
+export function notifyBookmarkSaved(bookmarkId: string) {
+  window.dispatchEvent(
+    new CustomEvent(bookmarkSavedEvent, { detail: { bookmarkId } }),
+  );
+}
+
+function youtubeThumbnailForUrl(value: string): string | null {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+    const videoId =
+      hostname === "youtu.be"
+        ? url.pathname.split("/").filter(Boolean)[0]
+        : hostname === "youtube.com" || hostname === "m.youtube.com"
+          ? url.searchParams.get("v") ??
+            url.pathname.match(/^\/(?:embed|shorts|live)\/([^/?]+)/)?.[1]
+          : null;
+    return videoId
+      ? `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 function bookmarkDetailStorageKey(bookmarkId: string) {
   return `${bookmarksStorageKey}:detail:${bookmarkId}`;
@@ -163,6 +215,9 @@ export function readBookmarkDetailState(snapshot: string | null): BookmarkDetail
     if (typeof value.archived === "boolean") state.archived = value.archived;
     if (typeof value.deleted === "boolean") state.deleted = value.deleted;
     if (typeof value.notes === "string") state.notes = value.notes;
+    if (typeof value.savedReason === "string") {
+      state.savedReason = value.savedReason;
+    }
     if (isBookmarkIntent(value.intent)) state.intent = value.intent;
     if (typeof value.collection === "string") {
       state.collection = value.collection;
@@ -223,6 +278,9 @@ export function updateBookmarkDetailState(
         : {}),
       ...(updates.tags !== undefined ? { tags: updates.tags } : {}),
       ...(updates.intent !== undefined ? { intent: updates.intent } : {}),
+      ...(updates.savedReason !== undefined
+        ? { savedReason: updates.savedReason }
+        : {}),
     };
     writeBookmarks(bookmarks);
   }
@@ -356,6 +414,9 @@ export function loadSavedBookmarks(
           : titleFromUrl(url),
       description:
         typeof bookmark.description === "string" ? bookmark.description : "",
+      ...(typeof bookmark.savedReason === "string"
+        ? { savedReason: bookmark.savedReason }
+        : {}),
       collection:
         typeof bookmark.collection === "string"
           ? bookmark.collection
@@ -392,6 +453,11 @@ export function loadSavedBookmarks(
       ...(isBookmarkIntent(bookmark.intent)
         ? { intent: bookmark.intent }
         : {}),
+      ...(bookmarkContentTypes.includes(
+        bookmark.contentType as BookmarkContentType,
+      )
+        ? { contentType: bookmark.contentType as BookmarkContentType }
+        : {}),
     };
   });
 }
@@ -403,11 +469,15 @@ export function cacheServerBookmark(
     domain: string;
     title: string;
     description: string | null;
+    collection?: string | null;
     canonicalUrl?: string | null;
     imageUrl?: string | null;
     faviconUrl?: string | null;
     contentStatus?: SavedBookmark["contentStatus"];
     createdAt?: string;
+    tags?: string[];
+    savedReason?: string | null;
+    contentType?: BookmarkContentType | null;
   },
 ): SavedBookmark {
   const bookmarks = readBookmarks();
@@ -418,6 +488,10 @@ export function cacheServerBookmark(
     existingIndex === -1 ? undefined : loadSavedBookmarks(
       JSON.stringify([bookmarks[existingIndex]]),
     )[0];
+  const imageUrl =
+    bookmark.imageUrl ??
+    existing?.imageUrl ??
+    youtubeThumbnailForUrl(bookmark.url);
   const saved: SavedBookmark = {
     id: bookmark.id,
     url: bookmark.url,
@@ -425,18 +499,21 @@ export function cacheServerBookmark(
     savedAt: existing?.savedAt ?? bookmark.createdAt ?? new Date().toISOString(),
     title: bookmark.title || bookmark.domain,
     description: bookmark.description ?? "",
-    collection: existing?.collection ?? "Unsorted",
-    tags: existing?.tags ?? [],
+    collection: bookmark.collection ?? existing?.collection ?? "Unsorted",
+    tags: bookmark.tags ?? existing?.tags ?? [],
+    savedReason:
+      bookmark.savedReason ?? existing?.savedReason ?? "",
+    ...(bookmark.contentType
+      ? { contentType: bookmark.contentType }
+      : existing?.contentType
+        ? { contentType: existing.contentType }
+        : {}),
     ...(bookmark.canonicalUrl !== undefined
       ? { canonicalUrl: bookmark.canonicalUrl }
       : existing?.canonicalUrl !== undefined
         ? { canonicalUrl: existing.canonicalUrl }
         : {}),
-    ...(bookmark.imageUrl !== undefined
-      ? { imageUrl: bookmark.imageUrl }
-      : existing?.imageUrl !== undefined
-        ? { imageUrl: existing.imageUrl }
-        : {}),
+    ...(imageUrl ? { imageUrl } : {}),
     ...(bookmark.faviconUrl !== undefined
       ? { faviconUrl: bookmark.faviconUrl }
       : existing?.faviconUrl !== undefined
@@ -466,14 +543,19 @@ export function cacheServerBookmark(
 
 export function replaceBookmarksFromDatabase(bookmarks: SavedBookmark[]) {
   writeBookmarks(
-    bookmarks.map((bookmark) => ({
-      ...bookmark,
-      collection: bookmark.collection || "Unsorted",
-      tags: bookmark.tags ?? [],
-    })),
+    bookmarks.map((bookmark) => {
+      const imageUrl = bookmark.imageUrl ?? youtubeThumbnailForUrl(bookmark.url);
+      return {
+        ...bookmark,
+        ...(imageUrl ? { imageUrl } : {}),
+        collection: bookmark.collection || "Unsorted",
+        tags: bookmark.tags ?? [],
+      };
+    }),
   );
 
   for (const bookmark of bookmarks) {
+    const imageUrl = bookmark.imageUrl ?? youtubeThumbnailForUrl(bookmark.url);
     const key = bookmarkDetailStorageKey(bookmark.id);
     window.localStorage.setItem(
       key,
@@ -485,8 +567,12 @@ export function replaceBookmarksFromDatabase(bookmarks: SavedBookmark[]) {
         archived: bookmark.archived ?? false,
         collection: bookmark.collection,
         tags: bookmark.tags,
+        ...(imageUrl ? { imageUrl } : {}),
         ...(bookmark.intent ? { intent: bookmark.intent } : {}),
         ...(bookmark.notes !== undefined ? { notes: bookmark.notes } : {}),
+        ...(bookmark.savedReason !== undefined
+          ? { savedReason: bookmark.savedReason }
+          : {}),
       }),
     );
   }
@@ -524,8 +610,10 @@ export function updateSavedBookmark(
       | "title"
       | "description"
       | "collection"
+      | "savedReason"
       | "tags"
       | "intent"
+      | "contentType"
       | "favorite"
       | "archived"
     >

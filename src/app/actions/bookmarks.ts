@@ -11,8 +11,13 @@ import {
 import type { BookmarkDetail, CreatedBookmark } from "../../lib/bookmarks/types";
 import { bookmarkCreated } from "../../lib/inngest/events";
 import { inngest } from "../../lib/inngest/client";
+import { getAIProvider } from "../../lib/ai/router";
 import { createAdminClient } from "../../lib/supabase/admin";
 import { createClient } from "../../lib/supabase/server";
+import {
+  isSupabaseAuthUnavailable,
+  throwIfSupabaseAuthUnavailable,
+} from "../../lib/supabase/auth-errors";
 
 export type SaveBookmarkActionResult =
   | {
@@ -29,7 +34,7 @@ export type SaveBookmarkActionResult =
     }
   | {
       ok: false;
-      code: "UNAUTHENTICATED" | "INVALID_URL" | "SAVE_FAILED";
+      code: "UNAUTHENTICATED" | "AUTH_UNAVAILABLE" | "INVALID_URL" | "SAVE_FAILED";
       error: string;
     };
 
@@ -37,7 +42,12 @@ export type BookmarkMutationResult =
   | { ok: true; bookmark?: BookmarkDetail }
   | {
       ok: false;
-      code: "UNAUTHENTICATED" | "INVALID_INPUT" | "NOT_FOUND" | "SAVE_FAILED";
+      code:
+        | "UNAUTHENTICATED"
+        | "AUTH_UNAVAILABLE"
+        | "INVALID_INPUT"
+        | "NOT_FOUND"
+        | "SAVE_FAILED";
       error: string;
     };
 
@@ -47,6 +57,7 @@ async function authenticatedBookmarkClient() {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  throwIfSupabaseAuthUnavailable(authError);
 
   if (
     authError &&
@@ -77,6 +88,7 @@ export async function saveBookmarkAction(
         userClient: supabase,
         userId: user.id,
         createAdminClient,
+        enrichMissingTags: getAIProvider("bookmark-enrichment") !== null,
         publishCreated: async (bookmarkId, userId) => {
           await inngest.send(
             bookmarkCreated.create({ bookmarkId, userId }),
@@ -114,6 +126,13 @@ export async function saveBookmarkAction(
       processingQueued: result.processingQueued,
     };
   } catch (error) {
+    if (isSupabaseAuthUnavailable(error)) {
+      return {
+        ok: false,
+        code: "AUTH_UNAVAILABLE",
+        error: "Authentication is temporarily unavailable. Please try again.",
+      };
+    }
     if (error instanceof InvalidBookmarkUrlError) {
       return { ok: false, code: "INVALID_URL", error: error.message };
     }
@@ -164,6 +183,13 @@ export async function updateBookmarkAction(
     revalidatePath("/app");
     return { ok: true, bookmark };
   } catch (error) {
+    if (isSupabaseAuthUnavailable(error)) {
+      return {
+        ok: false,
+        code: "AUTH_UNAVAILABLE",
+        error: "Authentication is temporarily unavailable. Please try again.",
+      };
+    }
     if (error instanceof TypeError) {
       return { ok: false, code: "INVALID_INPUT", error: error.message };
     }
@@ -212,6 +238,13 @@ export async function deleteBookmarkAction(
     revalidatePath("/app");
     return { ok: true };
   } catch (error) {
+    if (isSupabaseAuthUnavailable(error)) {
+      return {
+        ok: false,
+        code: "AUTH_UNAVAILABLE",
+        error: "Authentication is temporarily unavailable. Please try again.",
+      };
+    }
     console.error("Bookmark deletion action failed.", { bookmarkId, error });
     return {
       ok: false,

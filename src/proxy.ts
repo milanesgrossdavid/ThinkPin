@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { getSupabasePublicConfig } from "./lib/supabase/env";
+import { isSupabaseAuthUnavailable } from "./lib/supabase/auth-errors";
 
 function legacyAppPath(pathname: string) {
   if (pathname === "/dashboard") {
@@ -51,6 +52,17 @@ export async function proxy(request: NextRequest) {
   });
 
   const { data, error } = await supabase.auth.getClaims();
+
+  if (isSupabaseAuthUnavailable(error)) {
+    const unavailableResponse = new NextResponse(
+      "Authentication is temporarily unavailable. Please try again shortly.",
+      { status: 503 },
+    );
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      unavailableResponse.cookies.set(cookie);
+    });
+    return unavailableResponse;
+  }
 
   if (error || !data?.claims?.sub) {
     const loginUrl = new URL("/login", request.url);

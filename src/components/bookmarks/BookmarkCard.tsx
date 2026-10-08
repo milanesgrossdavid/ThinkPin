@@ -81,6 +81,8 @@ function formatSavedDate(value: string) {
 type BookmarkCardProps = {
   bookmark: Bookmark;
   variant?: BookmarkView;
+  hideDescription?: boolean;
+  hideSavedDate?: boolean;
 };
 
 type BookmarkDialogMode = "edit" | "move" | "tags" | "delete";
@@ -88,6 +90,8 @@ type BookmarkDialogMode = "edit" | "move" | "tags" | "delete";
 export function BookmarkCard({
   bookmark,
   variant = "grid",
+  hideDescription = false,
+  hideSavedDate = false,
 }: BookmarkCardProps) {
   const isGrid = variant === "grid";
   const isCompact = variant === "compact";
@@ -476,7 +480,7 @@ export function BookmarkCard({
             {isGrid && actions}
           </div>
 
-          {!isCompact && (
+          {!isCompact && !hideDescription && (
             <p
               className={`mt-1 text-xs leading-5 text-text-muted sm:text-sm sm:leading-6 ${
                 isGrid ? "line-clamp-2 min-h-10" : "line-clamp-1"
@@ -523,7 +527,7 @@ export function BookmarkCard({
         {!isGrid && (
           <div className="flex shrink-0 flex-col items-end gap-1">
             {actions}
-            {!isCompact && (
+            {!isCompact && !hideSavedDate && (
               <span className="hidden text-[10px] text-text-muted sm:block">
                 Saved {formatSavedDate(bookmark.savedAt)}
               </span>
@@ -531,7 +535,7 @@ export function BookmarkCard({
           </div>
         )}
 
-        {isGrid && (
+        {isGrid && !hideSavedDate && (
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/50 pt-3">
             <span className="text-[10px] text-text-muted">
               Saved {formatSavedDate(bookmark.savedAt)}

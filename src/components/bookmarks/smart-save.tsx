@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import {
   cacheServerBookmark,
+  notifyBookmarkSaved,
   normalizeBookmarkUrl,
   updateSavedBookmark,
   type SavedBookmark,
@@ -49,7 +50,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
   const [isPending, startTransition] = useTransition();
 
   const pollForMetadata = useCallback(async (bookmarkId: string) => {
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    for (let attempt = 0; attempt < 90; attempt += 1) {
       await new Promise((resolve) => window.setTimeout(resolve, 1_000));
       try {
         const response = await fetch(`/api/bookmarks/${bookmarkId}`, {
@@ -95,8 +96,31 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
               : null,
           imageUrl:
             typeof record.image_url === "string" ? record.image_url : null,
+          contentType:
+            record.content_type === "article" ||
+            record.content_type === "video" ||
+            record.content_type === "repository" ||
+            record.content_type === "product" ||
+            record.content_type === "tool" ||
+            record.content_type === "social" ||
+            record.content_type === "document" ||
+            record.content_type === "image" ||
+            record.content_type === "other"
+              ? record.content_type
+              : undefined,
           faviconUrl:
             typeof record.favicon_url === "string" ? record.favicon_url : null,
+          tags: Array.isArray(record.tags)
+            ? record.tags.filter((tag): tag is string => typeof tag === "string")
+            : undefined,
+          savedReason:
+            typeof record.saved_reason === "string"
+              ? record.saved_reason
+              : undefined,
+          collection:
+            typeof record.collection === "string"
+              ? record.collection
+              : undefined,
           contentStatus:
             record.content_status === "pending" ||
             record.content_status === "processing" ||
@@ -130,6 +154,9 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
         return;
       }
     }
+    setMessage(
+      "Your bookmark is saved and page analysis is still running. Its details will appear here when processing finishes.",
+    );
   }, []);
 
   const saveUrl = useCallback(async (value: string) => {
@@ -155,6 +182,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
         contentStatus: record.contentStatus,
         createdAt: "createdAt" in record ? record.createdAt : undefined,
       });
+      notifyBookmarkSaved(saved.id);
 
       if (result.duplicate) {
         setBookmark(saved);
@@ -417,6 +445,14 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
                         {bookmark.description}
                       </p>
                     )}
+                    {bookmark.tags.length > 0 && (
+                      <p
+                        aria-label="Suggested tags"
+                        className="mt-3 text-xs leading-5 text-text-muted"
+                      >
+                        {bookmark.tags.join(", ")}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -486,8 +522,8 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
                   ? message ||
                     "Your bookmark is saved. The background job could not complete."
                   : bookmark.contentStatus === "ready"
-                    ? "Metadata was extracted in the background. Automatic topics and AI tags are not part of this first stage yet."
-                    : "The bookmark is saved. Inngest is fetching the page metadata in the background."}
+                    ? "Page metadata is ready. When enabled, local AI can also suggest tags and a description."
+                    : "The bookmark is saved. Page details, tags, a summary, and a collection are being prepared in the background."}
               </p>
             </div>
 

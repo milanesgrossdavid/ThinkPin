@@ -8,10 +8,12 @@ const FETCH_TIMEOUT_MS = 8_000;
 const MAX_HTML_BYTES = 1_000_000;
 const MAX_REDIRECTS = 5;
 const USER_AGENT = "ThinkPinMetadataBot/1.0";
+const MAX_JSON_BYTES = 100_000;
 
 export type MetadataResult = {
   title: string;
   description: string | null;
+  content: string | null;
   image: string | null;
   siteName: string | null;
   favicon: string | null;
@@ -178,8 +180,12 @@ async function fetchHtml(url: URL, signal: AbortSignal): Promise<{ html: string;
     );
     const dispatcher = new Agent({
       connect: {
-        lookup: (_hostname, _options, callback) => {
-          callback(null, pinnedAddress.address, pinnedAddress.family);
+        lookup: (_hostname, options, callback) => {
+          if (options?.all) {
+            callback(null, [pinnedAddress]);
+          } else {
+            callback(null, pinnedAddress.address, pinnedAddress.family);
+          }
         },
       },
       connections: 1,
@@ -236,6 +242,60 @@ async function fetchHtml(url: URL, signal: AbortSignal): Promise<{ html: string;
   throw new Error("Redirect limit reached.");
 }
 
+async function fetchJson(url: URL, signal: AbortSignal): Promise<unknown> {
+  const pinnedAddress = await raceWithAbort(
+    resolvePublicAddress(url.hostname),
+    signal,
+  );
+  const dispatcher = new Agent({
+    connect: {
+      lookup: (_hostname, options, callback) => {
+        if (options?.all) {
+          callback(null, [pinnedAddress]);
+        } else {
+          callback(null, pinnedAddress.address, pinnedAddress.family);
+        }
+      },
+    },
+    connections: 1,
+    connectTimeout: FETCH_TIMEOUT_MS,
+    headersTimeout: FETCH_TIMEOUT_MS,
+    bodyTimeout: FETCH_TIMEOUT_MS,
+    maxResponseSize: MAX_JSON_BYTES,
+    pipelining: 0,
+  });
+
+  try {
+    const response = await undiciFetch(url, {
+      dispatcher,
+      redirect: "error",
+      signal,
+      headers: {
+        accept: "application/json",
+        "accept-encoding": "identity",
+        "user-agent": USER_AGENT,
+      },
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new Error(`Metadata request failed with HTTP ${response.status}.`);
+    }
+
+    const contentLength = Number(response.headers.get("content-length"));
+    if (Number.isFinite(contentLength) && contentLength > MAX_JSON_BYTES) {
+      await response.body?.cancel();
+      throw new Error("JSON response exceeds the size limit.");
+    }
+    const text = await response.text();
+    if (Buffer.byteLength(text) > MAX_JSON_BYTES) {
+      throw new Error("JSON response exceeds the size limit.");
+    }
+    return JSON.parse(text) as unknown;
+  } finally {
+    await dispatcher.close();
+  }
+}
+
 function firstMetaContent($: ReturnType<typeof load>, attribute: "name" | "property", value: string): string | null {
   const expected = value.toLowerCase();
   const content = $(`meta[${attribute}]`)
@@ -247,10 +307,23 @@ function firstMetaContent($: ReturnType<typeof load>, attribute: "name" | "prope
   return content || null;
 }
 
+function firstMetaBySelector(
+  $: ReturnType<typeof load>,
+  selectors: string[],
+): string | null {
+  for (const selector of selectors) {
+    const content = $(selector).first().attr("content")?.trim();
+    if (content) return content;
+  }
+  return null;
+}
+
 function extractResult(html: string, pageUrl: URL, fallbackTitle: string): MetadataResult {
   const $ = load(html);
   const title =
     firstMetaContent($, "property", "og:title") ??
+    firstMetaContent($, "name", "twitter:title") ??
+    firstMetaContent($, "property", "twitter:title") ??
     $("title").first().text().trim() ??
     fallbackTitle;
   const iconHref = $('link[rel]')
@@ -267,19 +340,104 @@ function extractResult(html: string, pageUrl: URL, fallbackTitle: string): Metad
     })
     .first()
     .attr("href");
+  const imageHref =
+    firstMetaContent($, "property", "og:image") ??
+    firstMetaContent($, "property", "og:image:secure_url") ??
+    firstMetaContent($, "name", "twitter:image") ??
+    firstMetaContent($, "name", "twitter:image:src") ??
+    firstMetaContent($, "property", "twitter:image") ??
+    firstMetaBySelector($, [
+      'meta[itemprop="image"]',
+      'link[rel="image_src"]',
+    ]);
+  $("script, style, noscript, svg, nav, footer, header, form").remove();
+  const content = (
+    $("article").first().text() ||
+    $("main").first().text() ||
+    $("body").text()
+  )
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80_000);
 
   return {
     title: title || fallbackTitle,
     description:
       firstMetaContent($, "property", "og:description") ??
       firstMetaContent($, "name", "description"),
-    image: safeHttpUrl(firstMetaContent($, "property", "og:image"), pageUrl),
+    content: content.length >= 100 ? content : null,
+    image: safeHttpUrl(imageHref, pageUrl),
     siteName: firstMetaContent($, "property", "og:site_name"),
     favicon:
       safeHttpUrl(iconHref ?? null, pageUrl) ??
       new URL("/favicon.ico", pageUrl).toString(),
     canonicalUrl: safeHttpUrl(canonicalHref ?? null, pageUrl),
   };
+}
+
+function youtubeVideoId(url: URL): string | null {
+  const hostname = url.hostname.toLowerCase().replace(/^www\./, "");
+  if (hostname === "youtu.be") {
+    return url.pathname.split("/").filter(Boolean)[0] ?? null;
+  }
+  if (hostname !== "youtube.com" && hostname !== "m.youtube.com") {
+    return null;
+  }
+  return (
+    url.searchParams.get("v") ??
+    url.pathname.match(/^\/(?:embed|shorts|live)\/([^/?]+)/)?.[1] ??
+    null
+  );
+}
+
+async function enrichYouTubeMetadata(
+  metadata: MetadataResult,
+  inputUrl: URL,
+): Promise<MetadataResult> {
+  const videoId = youtubeVideoId(inputUrl);
+  if (!videoId) return metadata;
+
+  const fallbackImage = `https://i.ytimg.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`;
+  const fallback: MetadataResult = {
+    ...metadata,
+    image: metadata.image ?? fallbackImage,
+    siteName: "YouTube",
+  };
+
+  const endpoint = new URL("https://www.youtube.com/oembed");
+  endpoint.searchParams.set("url", inputUrl.toString());
+  endpoint.searchParams.set("format", "json");
+  try {
+    const result = await fetchJson(endpoint, AbortSignal.timeout(FETCH_TIMEOUT_MS));
+    if (typeof result !== "object" || result === null) return fallback;
+    const embed = result as Record<string, unknown>;
+    const title = typeof embed.title === "string" ? embed.title.trim() : "";
+    const author =
+      typeof embed.author_name === "string" ? embed.author_name.trim() : "";
+    const thumbnail =
+      typeof embed.thumbnail_url === "string"
+        ? safeHttpUrl(embed.thumbnail_url, endpoint)
+        : null;
+
+    return {
+      ...fallback,
+      title: title || fallback.title,
+      description: null,
+      content: [
+        title ? `YouTube video title: ${title}` : "",
+        author ? `Video creator: ${author}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n") || fallback.content,
+      image: thumbnail ?? fallbackImage,
+    };
+  } catch (error) {
+    console.warn(
+      "YouTube oEmbed metadata lookup failed; using the video thumbnail fallback.",
+      error instanceof Error ? error.name : "Unknown error",
+    );
+    return fallback;
+  }
 }
 
 export async function extractMetadata(input: string | URL): Promise<MetadataResult> {
@@ -292,6 +450,7 @@ export async function extractMetadata(input: string | URL): Promise<MetadataResu
     return {
       title,
       description: null,
+      content: null,
       image: null,
       siteName: null,
       favicon: null,
@@ -303,23 +462,30 @@ export async function extractMetadata(input: string | URL): Promise<MetadataResu
   const fallback: MetadataResult = {
     title: fallbackTitle,
     description: null,
+    content: null,
     image: null,
     siteName: null,
     favicon: null,
     canonicalUrl: null,
   };
 
+  if (youtubeVideoId(pageUrl)) {
+    return enrichYouTubeMetadata(fallback, pageUrl);
+  }
+
+  let metadata = fallback;
   try {
     const { html, finalUrl } = await fetchHtml(
       pageUrl,
       AbortSignal.timeout(FETCH_TIMEOUT_MS),
     );
-    return extractResult(html, finalUrl, fallbackTitle);
+    metadata = extractResult(html, finalUrl, fallbackTitle);
   } catch (error) {
     console.warn(
       "Metadata extraction failed; returning fallback metadata.",
       error instanceof Error ? error.name : "Unknown error",
     );
-    return fallback;
   }
+
+  return metadata;
 }

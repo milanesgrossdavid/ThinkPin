@@ -6,7 +6,6 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -22,18 +21,7 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import {
-  getBookmarkDetailsSnapshot,
-  getBookmarksSnapshot,
-  getServerBookmarkDetailsSnapshot,
-  getServerBookmarksSnapshot,
-  loadSavedBookmarks,
-  readBookmarkDetailState,
-  subscribeToBookmarkDetails,
-  subscribeToBookmarks,
-} from "../../lib/bookmarks";
-import type { LibraryBookmark } from "../bookmarks/types";
-import { searchBookmarks } from "../../lib/search";
+import type { SearchBookmark } from "../../lib/search/types";
 import { requestSmartSave } from "../../lib/save-dialog";
 
 type CommandItem = {
@@ -118,12 +106,12 @@ const commands: CommandItem[] = [
   },
   {
     id: "ask-ai",
-    label: "Ask AI",
-    description: "Get an answer grounded in your bookmarks",
-    keywords: ["ai", "ask", "answer", "assistant"],
+    label: "Ask your library",
+    description: "Get an answer grounded in saved excerpts, with sources",
+    keywords: ["ai", "ask", "answer", "assistant", "library", "sources"],
     icon: Sparkles,
     href: (query) =>
-      `/app/search?mode=ai${query ? `&q=${encodeURIComponent(query)}` : ""}`,
+      `/app/ask${query ? `?q=${encodeURIComponent(query)}` : ""}`,
     section: "AI",
   },
 ];
@@ -136,43 +124,19 @@ function isTypingTarget(target: EventTarget | null) {
   );
 }
 
-function savedBookmarks(snapshot: string | null): LibraryBookmark[] {
-  if (!snapshot) {
-    return [];
-  }
-
-  return loadSavedBookmarks(snapshot).map((bookmark) => ({
-    ...bookmark,
-    topic: bookmark.collection,
-    subtopic: bookmark.intent ?? "Saved",
-    icon: Library,
-    artwork: "from-primary/15 via-sky-500/10 to-transparent",
-    contentType: "article",
-    favorite: bookmark.favorite ?? false,
-    unread: bookmark.unread ?? false,
-    savedDate: bookmark.savedAt.slice(0, 10),
-    searchTerms: [bookmark.collection, bookmark.intent ?? "", bookmark.url],
-  }));
-}
-
 export function CommandMenu() {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
   const sequenceRef = useRef("");
   const sequenceTimeoutRef = useRef<number | null>(null);
-  const bookmarksSnapshot = useSyncExternalStore(
-    subscribeToBookmarks,
-    getBookmarksSnapshot,
-    getServerBookmarksSnapshot,
-  );
-  const detailsSnapshot = useSyncExternalStore(
-    subscribeToBookmarkDetails,
-    getBookmarkDetailsSnapshot,
-    getServerBookmarkDetailsSnapshot,
-  );
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [bookmarkSearch, setBookmarkSearch] = useState<{
+    query: string;
+    results: SearchBookmark[];
+    error: string;
+  }>({ query: "", results: [], error: "" });
 
   useEffect(() => {
     if (open) {
@@ -181,62 +145,70 @@ export function CommandMenu() {
     }
   }, [open]);
 
-  const localBookmarks = useMemo(() => {
-    try {
-      return savedBookmarks(bookmarksSnapshot);
-    } catch {
-      return [];
-    }
-  }, [bookmarksSnapshot]);
-  const availableBookmarks = useMemo(
-    () => {
-      const bookmarks = localBookmarks;
-      if (!detailsSnapshot) {
-        return bookmarks;
-      }
-      try {
-        const entries: unknown = JSON.parse(detailsSnapshot);
-        if (
-          !Array.isArray(entries) ||
-          !entries.every(
-            (entry) =>
-              Array.isArray(entry) &&
-              entry.length === 2 &&
-              typeof entry[0] === "string" &&
-              typeof entry[1] === "string",
-          )
-        ) {
-          return bookmarks;
-        }
-        const details = new Map(
-          entries.map(([id, value]: [string, string]) => [
-            id,
-            readBookmarkDetailState(value),
-          ]),
-        );
-        return bookmarks
-          .map((bookmark) => {
-            const detail = details.get(bookmark.id);
-            return {
-              ...bookmark,
-              title: detail?.title ?? bookmark.title,
-              description: detail?.description ?? bookmark.description,
-              topic: detail?.collection ?? bookmark.topic,
-              tags: detail?.tags ?? bookmark.tags,
-              intent: detail?.intent ?? bookmark.intent,
-              favorite: detail?.favorite ?? bookmark.favorite,
-              archived: detail?.archived ?? bookmark.archived,
-              deleted: detail?.deleted ?? false,
-            };
-          })
-          .filter((bookmark) => !bookmark.archived && !bookmark.deleted);
-      } catch {
-        return bookmarks;
-      }
-    },
-    [detailsSnapshot, localBookmarks],
-  );
   const normalizedQuery = query.trim().toLowerCase();
+  const matchingBookmarks = useMemo(
+    () =>
+      bookmarkSearch.query === normalizedQuery ? bookmarkSearch.results : [],
+    [bookmarkSearch.query, bookmarkSearch.results, normalizedQuery],
+  );
+  useEffect(() => {
+    if (!open || !normalizedQuery) {
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => {
+      const params = new URLSearchParams({
+        q: query.trim(),
+        mode: "keyword",
+      });
+      fetch(`/api/search?${params}`, { signal: controller.signal })
+        .then(async (response) => {
+          const payload: unknown = await response.json();
+          if (!response.ok) {
+            const message =
+              typeof payload === "object" &&
+              payload !== null &&
+              "error" in payload &&
+              typeof payload.error === "string"
+                ? payload.error
+                : "Bookmark search could not be completed.";
+            throw new Error(message);
+          }
+          if (
+            typeof payload !== "object" ||
+            payload === null ||
+            !("results" in payload) ||
+            !Array.isArray(payload.results)
+          ) {
+            throw new Error("Bookmark search returned an invalid response.");
+          }
+          return payload.results as SearchBookmark[];
+        })
+        .then((results) => {
+          setBookmarkSearch({ query: normalizedQuery, results, error: "" });
+        })
+        .catch((error: unknown) => {
+          if (error instanceof DOMException && error.name === "AbortError") {
+            return;
+          }
+          setBookmarkSearch({
+            query: normalizedQuery,
+            results: [],
+            error:
+              error instanceof Error
+                ? error.message
+                : "Bookmark search could not be completed.",
+          });
+        });
+    }, 150);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [normalizedQuery, open, query]);
+
   const matchingCommands = useMemo(
     () =>
       commands.filter((command) =>
@@ -246,18 +218,6 @@ export function CommandMenu() {
       ),
     [normalizedQuery],
   );
-  const matchingBookmarks = useMemo(
-    () =>
-      normalizedQuery
-        ? searchBookmarks(
-            availableBookmarks,
-            query,
-            "semantic",
-          ).slice(0, 5)
-        : [],
-    [availableBookmarks, normalizedQuery, query],
-  );
-
   const items = useMemo(() => {
     const searchItem = normalizedQuery
       ? [{ id: "search-all", type: "search" as const }]
@@ -537,9 +497,9 @@ export function CommandMenu() {
                     }`}
                   >
                     <span
-                      className={`flex size-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${bookmark.artwork} text-text`}
+                      className="flex size-8 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
                     >
-                      <bookmark.icon aria-hidden="true" className="size-4" />
+                    <Library aria-hidden="true" className="size-4" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-text">
@@ -603,7 +563,10 @@ export function CommandMenu() {
 
           {normalizedQuery && matchingBookmarks.length === 0 && (
             <p className="px-3 py-3 text-xs text-text-muted">
-              No bookmark matches yet. Press Enter to search your memory.
+              {bookmarkSearch.query !== normalizedQuery
+                ? "Searching your bookmarks..."
+                : bookmarkSearch.error ||
+                  "No bookmark matches yet. Press Enter to search your memory."}
             </p>
           )}
         </div>

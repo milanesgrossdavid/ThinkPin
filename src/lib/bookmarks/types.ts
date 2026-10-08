@@ -18,6 +18,7 @@ export type BookmarkListItem = {
   createdAt: string;
   tags: string[];
   collection: string | null;
+  savedReason: string | null;
   notes: string | null;
 };
 
@@ -29,12 +30,15 @@ export type BookmarkDetail = Pick<
   | "title"
   | "description"
   | "domain"
+  | "contentType"
+  | "intent"
   | "imageUrl"
   | "faviconUrl"
   | "contentStatus"
   | "createdAt"
   | "tags"
   | "collection"
+  | "savedReason"
   | "notes"
 >;
 
@@ -43,6 +47,7 @@ export type BookmarkForIngestion = {
   userId: string;
   url: string;
   domain: string;
+  collections: string[];
 };
 
 export type CreatedBookmark = Pick<

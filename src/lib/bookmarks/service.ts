@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { canonicalizeUrl } from "../ingestion/canonicalize-url";
 import type { MetadataResult } from "../ingestion/metadata";
+import type { BookmarkEnrichment } from "../ai/types";
 import { normalizeUrl } from "../ingestion/normalize-url";
 import {
   createBookmark as insertBookmark,
@@ -8,6 +9,7 @@ import {
   findBookmarkForIngestion,
   findBookmarkStatus,
   listBookmarks,
+  saveBookmarkAIEnrichment as persistBookmarkAIEnrichment,
   updateBookmarkMetadata,
   updateBookmarkStatus,
 } from "./repository";
@@ -34,6 +36,7 @@ type CreateBookmarkDependencies = {
   userId: string;
   createAdminClient: () => SupabaseClient;
   publishCreated: (bookmarkId: string, userId: string) => Promise<void>;
+  enrichMissingTags: boolean;
 };
 
 export type CreateBookmarkOutcome =
@@ -47,6 +50,42 @@ export type CreateBookmarkOutcome =
       bookmark: CreatedBookmark;
       processingQueued: boolean;
     };
+
+function needsPlatformMetadataRefresh(bookmark: {
+  url: string;
+  title: string;
+  imageUrl: string | null;
+}) {
+  const hostname = new URL(bookmark.url).hostname.toLowerCase().replace(/^www\./, "");
+  const title = bookmark.title.trim().toLowerCase();
+
+  if (
+    hostname === "youtube.com" ||
+    hostname === "m.youtube.com" ||
+    hostname === "youtu.be"
+  ) {
+    return (
+      !bookmark.imageUrl ||
+      title === hostname ||
+      title === "youtube" ||
+      title === "www.youtube.com"
+    );
+  }
+
+  if (
+    hostname === "facebook.com" ||
+    hostname.endsWith(".facebook.com") ||
+    hostname === "fb.watch"
+  ) {
+    return title === hostname || title === "facebook";
+  }
+
+  if (hostname === "medium.com" || hostname.endsWith(".medium.com")) {
+    return title === hostname || title === "medium";
+  }
+
+  return false;
+}
 
 export async function createBookmark(
   dependencies: CreateBookmarkDependencies,
@@ -67,11 +106,28 @@ export async function createBookmark(
       created.bookmarkId,
     );
 
-    if (status !== "failed") {
+    const existingBookmark =
+      status === "ready"
+        ? await findBookmarkById(
+            dependencies.userClient,
+            userId,
+            created.bookmarkId,
+          )
+        : null;
+    const missingEnrichment =
+      status === "ready" &&
+      dependencies.enrichMissingTags &&
+      (!existingBookmark?.tags.length || !existingBookmark.savedReason);
+    const stalePlatformMetadata =
+      status === "ready" &&
+      existingBookmark !== null &&
+      needsPlatformMetadataRefresh(existingBookmark);
+
+    if (status !== "failed" && !missingEnrichment && !stalePlatformMetadata) {
       return {
         duplicate: true,
         bookmarkId: created.bookmarkId,
-        processingQueued: true,
+        processingQueued: status === "pending" || status === "processing",
       };
     }
 
@@ -187,6 +243,7 @@ export function getUserBookmark(
 export type UpdateBookmarkInput = {
   title?: string;
   description?: string;
+  savedReason?: string;
   collection?: string;
   tags?: string[];
   intent?: string | null;
@@ -199,6 +256,7 @@ export type UpdateBookmarkInput = {
 const updateBookmarkKeys = new Set([
   "title",
   "description",
+  "savedReason",
   "collection",
   "tags",
   "intent",
@@ -220,7 +278,13 @@ export function parseUpdateBookmarkInput(input: unknown): UpdateBookmarkInput {
 
   const source = input as Record<string, unknown>;
   const result: UpdateBookmarkInput = {};
-  for (const key of ["title", "description", "collection", "notes"] as const) {
+  for (const key of [
+    "title",
+    "description",
+    "savedReason",
+    "collection",
+    "notes",
+  ] as const) {
     if (key in source) {
       if (typeof source[key] !== "string") {
         throw new TypeError("Bookmark update is invalid.");
@@ -287,6 +351,12 @@ export async function updateUserBookmark(
       throw new Error("Bookmark description must be 10,000 characters or fewer.");
     }
     fields.description = updates.description.trim() || null;
+  }
+  if (updates.savedReason !== undefined) {
+    if (updates.savedReason.length > 1_000) {
+      throw new Error("Saved reason must be 1,000 characters or fewer.");
+    }
+    fields.savedReason = updates.savedReason.trim() || null;
   }
   if (updates.intent !== undefined) {
     const intent = updates.intent?.trim().toLocaleLowerCase() ?? null;
@@ -379,7 +449,7 @@ export async function saveBookmarkMetadata(
     description: metadata.description,
     imageUrl: metadata.image,
     faviconUrl: metadata.favicon,
-    contentStatus: "ready" as const,
+    contentStatus: "processing" as const,
   };
 
   const error = await updateBookmarkMetadata(adminClient, bookmark.id, bookmark.userId, {
@@ -412,6 +482,71 @@ export async function saveBookmarkMetadata(
   }
 
   return { hasMetadata };
+}
+
+export async function saveBookmarkAIEnrichment(
+  adminClient: SupabaseClient,
+  bookmark: BookmarkForIngestion,
+  enrichment: BookmarkEnrichment,
+) {
+  const validContentTypes = new Set([
+    "article",
+    "video",
+    "repository",
+    "product",
+    "tool",
+    "social",
+    "document",
+    "image",
+    "other",
+  ]);
+  const validIntents = new Set([
+    "research",
+    "learn",
+    "reference",
+    "inspiration",
+    "buy",
+    "project",
+    "read-later",
+    "watch-later",
+    "other",
+  ]);
+  const title = enrichment.title.trim();
+  const description = enrichment.description.trim();
+  const tags = [...new Map(
+    enrichment.tags
+      .map((tag) => tag.trim().replace(/^#/, ""))
+      .filter((tag) => tag.length > 0 && tag.length <= 80)
+      .map((tag) => [tag.toLocaleLowerCase(), tag]),
+  ).values()].slice(0, 10);
+
+  if (
+    !validContentTypes.has(enrichment.contentType) ||
+    !validIntents.has(enrichment.intent) ||
+    title.length > 500 ||
+    description.length > 1_000
+  ) {
+    throw new Error("Bookmark AI enrichment contains invalid metadata.");
+  }
+
+  await persistBookmarkAIEnrichment(
+    adminClient,
+    bookmark.userId,
+    bookmark.id,
+    {
+      ...(title ? { title } : {}),
+      ...(description ? { description } : {}),
+      savedReason: enrichment.savedReason.trim().slice(0, 300),
+      contentType: enrichment.contentType,
+      intent: enrichment.intent,
+      tags,
+      suggestedCollection: bookmark.collections.find(
+        (collection) =>
+          collection.toLocaleLowerCase() ===
+          enrichment.suggestedCollection?.toLocaleLowerCase(),
+      ) ?? null,
+    },
+  );
 }
 
 export { InvalidBookmarkUrlError };

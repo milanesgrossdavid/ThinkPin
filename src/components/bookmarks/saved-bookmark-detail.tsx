@@ -59,18 +59,20 @@ export function SavedBookmarkDetail({ bookmarkId }: { bookmarkId: string }) {
           savedDate: bookmark.savedAt.slice(0, 10),
           icon: Link2,
           artwork: "from-primary/15 via-sky-500/10 to-transparent",
-          contentType: /github\.com$/i.test(bookmark.domain)
+          thumbnailUrl: bookmark.imageUrl ?? undefined,
+          contentType: bookmark.contentType ?? (/github\.com$/i.test(bookmark.domain)
             ? "repository"
             : /youtube\.com$|youtu\.be$/i.test(bookmark.domain)
               ? "video"
               : /amazon\.|etsy\.|shop/i.test(bookmark.domain)
                 ? "product"
-                : "article",
+                : "article"),
           intent: bookmark.intent,
           favorite: bookmark.favorite ?? false,
           unread: bookmark.unread ?? false,
           archived: bookmark.archived ?? false,
           notes: bookmark.notes,
+          savedReason: bookmark.savedReason,
         }}
         collection={bookmark.collection}
       />

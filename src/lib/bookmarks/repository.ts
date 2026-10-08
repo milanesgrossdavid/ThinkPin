@@ -42,7 +42,7 @@ export async function listBookmarks(
   const { data, error } = await supabase
     .from("bookmarks")
     .select(
-      "id, url, canonical_url, title, description, domain, favicon_url, image_url, content_type, intent, is_favorite, is_archived, is_read, content_status, created_at",
+      "id, url, canonical_url, title, description, domain, favicon_url, image_url, content_type, intent, saved_reason, is_favorite, is_archived, is_read, content_status, created_at",
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
@@ -113,6 +113,7 @@ export async function listBookmarks(
     imageUrl: row.image_url,
     contentType: row.content_type,
     intent: row.intent,
+    savedReason: row.saved_reason,
     isFavorite: row.is_favorite,
     isArchived: row.is_archived,
     isRead: row.is_read,
@@ -132,7 +133,7 @@ export async function findBookmarkById(
   const { data, error } = await supabase
     .from("bookmarks")
     .select(
-      "id, url, canonical_url, title, description, domain, image_url, favicon_url, content_status, created_at",
+      "id, url, canonical_url, title, description, domain, image_url, favicon_url, content_type, intent, saved_reason, content_status, created_at",
     )
     .eq("id", bookmarkId)
     .eq("user_id", userId)
@@ -177,6 +178,9 @@ export async function findBookmarkById(
     title: data.title,
     description: data.description,
     domain: data.domain,
+    contentType: data.content_type,
+    intent: data.intent,
+    savedReason: data.saved_reason,
     imageUrl: data.image_url,
     faviconUrl: data.favicon_url,
     contentStatus: requireBookmarkStatus(data.content_status),
@@ -195,6 +199,7 @@ export async function updateBookmarkFields(
     title?: string;
     description?: string | null;
     intent?: string | null;
+    savedReason?: string | null;
     isFavorite?: boolean;
     isRead?: boolean;
     isArchived?: boolean;
@@ -208,6 +213,9 @@ export async function updateBookmarkFields(
         ? { description: fields.description }
         : {}),
       ...(fields.intent !== undefined ? { intent: fields.intent } : {}),
+      ...(fields.savedReason !== undefined
+        ? { saved_reason: fields.savedReason }
+        : {}),
       ...(fields.isFavorite !== undefined
         ? { is_favorite: fields.isFavorite }
         : {}),
@@ -221,6 +229,65 @@ export async function updateBookmarkFields(
 
   if (error) {
     throw error;
+  }
+}
+
+export async function saveBookmarkAIEnrichment(
+  supabase: SupabaseClient,
+  userId: string,
+  bookmarkId: string,
+  fields: {
+    title?: string;
+    description?: string;
+    savedReason: string;
+    contentType: string;
+    intent: string;
+    tags: string[];
+    suggestedCollection: string | null;
+  },
+) {
+  const { error } = await supabase
+    .from("bookmarks")
+    .update({
+      ...(fields.title !== undefined ? { title: fields.title } : {}),
+      ...(fields.description !== undefined
+        ? { description: fields.description }
+        : {}),
+      content_type: fields.contentType,
+      intent: fields.intent,
+      saved_reason: fields.savedReason,
+    })
+    .eq("id", bookmarkId)
+    .eq("user_id", userId);
+
+  if (error) throw error;
+
+  const { data, error: readError } = await supabase
+    .from("bookmark_tags")
+    .select("tags(name)")
+    .eq("bookmark_id", bookmarkId);
+  if (readError) throw readError;
+
+  const existingTags = data.flatMap((row) => relationNames(row.tags));
+  const names = new Map<string, string>();
+  for (const tag of [...existingTags, ...fields.tags]) {
+    names.set(tag.toLocaleLowerCase(), tag);
+  }
+  if (fields.tags.length > 0) {
+    await replaceBookmarkTags(
+      supabase,
+      userId,
+      bookmarkId,
+      [...names.values()].slice(0, 30),
+    );
+  }
+  if (fields.suggestedCollection) {
+    await replaceBookmarkCollection(
+      supabase,
+      userId,
+      bookmarkId,
+      fields.suggestedCollection,
+    );
   }
 }
 
@@ -366,12 +433,13 @@ export async function replaceBookmarkCollection(
   const { error: removeError } = await supabase
     .from("bookmark_collections")
     .delete()
+    .eq("user_id", userId)
     .eq("bookmark_id", bookmarkId);
   if (removeError) throw removeError;
 
   const { error: insertError } = await supabase
     .from("bookmark_collections")
-    .insert({ bookmark_id: bookmarkId, collection_id: collectionId });
+    .insert({ user_id: userId, bookmark_id: bookmarkId, collection_id: collectionId });
   if (insertError) throw insertError;
 }
 
@@ -528,11 +596,26 @@ export async function findBookmarkForIngestion(
     throw error;
   }
 
+  const { data: collections, error: collectionError } = await supabase
+    .from("collections")
+    .select("name")
+    .eq("user_id", userId)
+    .order("name");
+  if (collectionError) throw collectionError;
+
   return {
     id: data.id,
     userId: data.user_id,
     url: data.url,
     domain: data.domain,
+    collections: [
+      "Development",
+      "AI",
+      "Design",
+      "Learning",
+      "Read later",
+      ...collections.map((collection) => collection.name),
+    ],
   };
 }
 
@@ -545,7 +628,7 @@ export async function updateBookmarkMetadata(
     description: string | null;
     imageUrl: string | null;
     faviconUrl: string | null;
-    contentStatus: "ready";
+    contentStatus: "processing";
     canonicalUrl?: string;
   },
 ) {

@@ -2,6 +2,7 @@
 
 import {
   useCallback,
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -54,6 +55,8 @@ function labelForContentType(contentType: Bookmark["contentType"]) {
       return "Social";
     case "document":
       return "Document";
+    case "image":
+      return "Image";
     case "other":
       return "Other";
     default:
@@ -112,7 +115,7 @@ export function BookmarkDetailView({
     getCollectionsSnapshot,
     getServerCollectionsSnapshot,
   );
-  const { setArchived, updateDetails } = useBookmarkActions();
+  const { setArchived, setUnread, updateDetails } = useBookmarkActions();
   const toast = useAppToast();
   const detailState = useMemo(
     () => {
@@ -142,6 +145,8 @@ export function BookmarkDetailView({
   }, [collectionsSnapshot]);
   const [notesDraft, setNotesDraft] = useState<string | null>(null);
   const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [savedReasonDraft, setSavedReasonDraft] = useState<string | null>(null);
+  const [isEditingSavedReason, setIsEditingSavedReason] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [showTagInput, setShowTagInput] = useState(false);
   const [showCollectionOptions, setShowCollectionOptions] = useState(false);
@@ -160,6 +165,13 @@ export function BookmarkDetailView({
   const tags = detailState.tags ?? bookmark.tags ?? [bookmark.topic, bookmark.subtopic];
   const intent = detailState.intent ?? bookmark.intent;
   const notes = notesDraft ?? detailState.notes ?? bookmark.notes ?? "";
+  const savedReason =
+    detailState.savedReason ?? bookmark.savedReason ?? "";
+  useEffect(() => {
+    if (unread) {
+      void setUnread(bookmark.id, false, false);
+    }
+  }, [bookmark.id, setUnread, unread]);
   const savedDate = formatSavedDate(bookmark);
   const detailStorageError =
     detailSnapshot === null
@@ -232,6 +244,20 @@ export function BookmarkDetailView({
         }, 650);
       } else {
         setNoteSaveFailed(true);
+      }
+    });
+  }
+
+  function saveSavedReason() {
+    const nextReason = savedReasonDraft ?? "";
+    startInteraction(async () => {
+      const succeeded = await updateDetails(bookmark.id, {
+        savedReason: nextReason,
+      });
+      if (succeeded) {
+        setSavedReasonDraft(null);
+        setIsEditingSavedReason(false);
+        setFeedback("Why you saved it was updated.");
       }
     });
   }
@@ -369,11 +395,60 @@ export function BookmarkDetailView({
           </section>
 
           <section className="py-5 sm:py-6">
-            <h2 className="text-sm font-semibold text-text">Why you saved it</h2>
-            <p className="mt-2 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary">
-              <Sparkles aria-hidden="true" className="size-3.5" />
-              {intent ?? "Not specified"}
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-sm font-semibold text-text">Why you saved it</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setSavedReasonDraft(savedReason);
+                  setIsEditingSavedReason(true);
+                }}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {savedReason ? "Edit" : "Add your reason"}
+              </button>
+            </div>
+            {isEditingSavedReason ? (
+              <div className="mt-3 space-y-2">
+                <textarea
+                  autoFocus
+                  value={savedReasonDraft ?? ""}
+                  onChange={(event) => setSavedReasonDraft(event.target.value)}
+                  placeholder="What made this useful to save?"
+                  maxLength={1000}
+                  rows={3}
+                  className="w-full resize-y rounded-xl border border-border bg-background px-3 py-2 text-sm leading-6 text-text outline-none focus:border-primary focus:ring-4 focus:ring-primary/10"
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSavedReasonDraft(null);
+                      setIsEditingSavedReason(false);
+                    }}
+                    className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-text-muted"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isInteractionPending}
+                    onClick={saveSavedReason}
+                    className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                  >
+                    Save
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 flex items-start gap-2 text-sm leading-6 text-text-muted">
+                <Sparkles
+                  aria-hidden="true"
+                  className="mt-1 size-4 shrink-0 text-primary"
+                />
+                <span>{savedReason || intent || "Add why this is useful to you."}</span>
+              </p>
+            )}
           </section>
 
           <section className="py-5 sm:py-6">
@@ -386,19 +461,23 @@ export function BookmarkDetailView({
                 Browse related
               </Link>
             </div>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <p className="mt-3 text-sm leading-7 text-text-muted">
               {tags.length === 0 && (
-                <p className="text-sm text-text-muted">No tags yet</p>
+                <span>No tags yet</span>
               )}
-              {tags.map((tag) => (
-                <Link
-                  key={tag}
-                  href={`/app/bookmarks?tag=${encodeURIComponent(tag)}`}
-                  className="inline-flex min-h-8 items-center rounded-full bg-background px-3 text-xs font-medium text-text-muted transition-colors hover:bg-primary/10 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  #{tag.replace(/^#/, "")}
-                </Link>
+              {tags.map((tag, index) => (
+                <span key={tag}>
+                  {index > 0 ? ", " : ""}
+                  <Link
+                    href={`/app/bookmarks?tag=${encodeURIComponent(tag)}`}
+                    className="font-medium text-text-muted underline decoration-border underline-offset-2 transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    {tag.replace(/^#/, "")}
+                  </Link>
+                </span>
               ))}
+            </p>
+            <div className="mt-2">
               <button
                 type="button"
                 aria-expanded={showTagInput}
@@ -470,7 +549,7 @@ export function BookmarkDetailView({
               </div>
             )}
             <p className="mt-2 text-xs text-text-muted">
-              Collection changes are saved in this browser.
+              Collection changes are saved to your library.
             </p>
           </section>
 

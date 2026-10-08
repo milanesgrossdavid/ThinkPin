@@ -6,8 +6,13 @@ import {
 } from "../../../lib/bookmarks/service";
 import { inngest } from "../../../lib/inngest/client";
 import { bookmarkCreated } from "../../../lib/inngest/events";
+import { getAIProvider } from "../../../lib/ai/router";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createClient } from "../../../lib/supabase/server";
+import {
+  SupabaseAuthUnavailableError,
+  throwIfSupabaseAuthUnavailable,
+} from "../../../lib/supabase/auth-errors";
 
 async function getAuthenticatedUser() {
   const supabase = await createClient();
@@ -15,6 +20,7 @@ async function getAuthenticatedUser() {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  throwIfSupabaseAuthUnavailable(authError);
 
   if (
     authError &&
@@ -54,6 +60,7 @@ export async function GET() {
         is_archived: bookmark.isArchived,
         is_read: bookmark.isRead,
         content_status: bookmark.contentStatus,
+        saved_reason: bookmark.savedReason,
         created_at: bookmark.createdAt,
         tags: bookmark.tags,
         collection: bookmark.collection,
@@ -61,6 +68,13 @@ export async function GET() {
       })),
     });
   } catch (error) {
+    if (error instanceof SupabaseAuthUnavailableError) {
+      console.warn("Bookmark request could not reach Supabase Auth.");
+      return NextResponse.json(
+        { error: "Authentication is temporarily unavailable. Please try again." },
+        { status: 503 },
+      );
+    }
     console.error("Bookmark list failed.", error);
     return NextResponse.json(
       { error: "Bookmarks could not be loaded." },
@@ -107,6 +121,7 @@ export async function POST(request: Request) {
         userClient: supabase,
         userId: user.id,
         createAdminClient,
+        enrichMissingTags: getAIProvider("bookmark-enrichment") !== null,
         publishCreated: async (bookmarkId, userId) => {
           await inngest.send(
             bookmarkCreated.create({ bookmarkId, userId }),
@@ -145,6 +160,13 @@ export async function POST(request: Request) {
       { status: 201 },
     );
   } catch (error) {
+    if (error instanceof SupabaseAuthUnavailableError) {
+      console.warn("Bookmark request could not reach Supabase Auth.");
+      return NextResponse.json(
+        { error: "Authentication is temporarily unavailable. Please try again." },
+        { status: 503 },
+      );
+    }
     if (error instanceof InvalidBookmarkUrlError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

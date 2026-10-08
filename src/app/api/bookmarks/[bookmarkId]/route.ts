@@ -5,6 +5,10 @@ import {
   updateUserBookmark,
 } from "../../../../lib/bookmarks/service";
 import { createClient } from "../../../../lib/supabase/server";
+import {
+  SupabaseAuthUnavailableError,
+  throwIfSupabaseAuthUnavailable,
+} from "../../../../lib/supabase/auth-errors";
 
 type RouteContext = {
   params: Promise<{ bookmarkId: string }>;
@@ -16,6 +20,7 @@ async function authenticate() {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  throwIfSupabaseAuthUnavailable(authError);
 
   if (
     authError &&
@@ -39,6 +44,9 @@ function serializeBookmark(bookmark: NonNullable<Awaited<ReturnType<typeof getUs
     image_url: bookmark.imageUrl,
     favicon_url: bookmark.faviconUrl,
     content_status: bookmark.contentStatus,
+    content_type: bookmark.contentType,
+    intent: bookmark.intent,
+    saved_reason: bookmark.savedReason,
     created_at: bookmark.createdAt,
     tags: bookmark.tags,
     collection: bookmark.collection,
@@ -72,6 +80,13 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
     return NextResponse.json({ bookmark: serializeBookmark(bookmark) });
   } catch (error) {
+    if (error instanceof SupabaseAuthUnavailableError) {
+      console.warn("Bookmark request could not reach Supabase Auth.");
+      return NextResponse.json(
+        { error: "Authentication is temporarily unavailable. Please try again." },
+        { status: 503 },
+      );
+    }
     console.error("Bookmark lookup failed.", error);
     return NextResponse.json(
       { error: "Bookmark could not be loaded." },
@@ -104,6 +119,13 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     return NextResponse.json({ bookmark: serializeBookmark(bookmark) });
   } catch (error) {
+    if (error instanceof SupabaseAuthUnavailableError) {
+      console.warn("Bookmark request could not reach Supabase Auth.");
+      return NextResponse.json(
+        { error: "Authentication is temporarily unavailable. Please try again." },
+        { status: 503 },
+      );
+    }
     if (error instanceof TypeError) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
@@ -132,6 +154,13 @@ export async function DELETE(_request: Request, { params }: RouteContext) {
     }
     return NextResponse.json({ deleted: true });
   } catch (error) {
+    if (error instanceof SupabaseAuthUnavailableError) {
+      console.warn("Bookmark request could not reach Supabase Auth.");
+      return NextResponse.json(
+        { error: "Authentication is temporarily unavailable. Please try again." },
+        { status: 503 },
+      );
+    }
     console.error("Bookmark deletion failed.", error);
     return NextResponse.json(
       { error: "Bookmark could not be deleted." },

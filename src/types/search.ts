@@ -1,6 +1,6 @@
 import type { Bookmark } from "./bookmark";
 
-export type SearchMode = "keyword" | "semantic" | "ai";
+export type SearchMode = "keyword" | "full-text" | "semantic" | "ai";
 
 export type SearchState = "idle" | "searching" | "success" | "empty" | "error";
 
