@@ -20,10 +20,20 @@ export type MetadataResult = {
   canonicalUrl: string | null;
 };
 
+export type LinkAvailabilityResult = {
+  status: "healthy" | "redirect" | "broken" | "timeout" | "blocked" | "unknown";
+  httpStatus: number | null;
+  redirectUrl: string | null;
+  responseTime: number;
+  error: string | null;
+};
+
 type ResolvedAddress = {
   address: string;
   family: number;
 };
+
+class UnsafeLinkTargetError extends Error {}
 
 function isPublicAddress(address: string): boolean {
   const family = isIP(address);
@@ -71,7 +81,9 @@ async function resolvePublicAddress(hostname: string): Promise<ResolvedAddress> 
     : await lookup(address, { all: true, verbatim: true });
 
   if (addresses.length === 0 || addresses.some(({ address: ip }) => !isPublicAddress(ip))) {
-    throw new Error("Host does not resolve exclusively to public IP addresses.");
+    throw new UnsafeLinkTargetError(
+      "Host does not resolve exclusively to public IP addresses.",
+    );
   }
 
   return addresses[0];
@@ -242,6 +254,172 @@ async function fetchHtml(url: URL, signal: AbortSignal): Promise<{ html: string;
   throw new Error("Redirect limit reached.");
 }
 
+export async function checkLinkAvailability(
+  input: string,
+): Promise<LinkAvailabilityResult> {
+  const startedAt = Date.now();
+  let originalUrl: URL;
+  try {
+    originalUrl = new URL(input);
+    if (
+      (originalUrl.protocol !== "http:" && originalUrl.protocol !== "https:") ||
+      !originalUrl.hostname ||
+      originalUrl.username ||
+      originalUrl.password
+    ) {
+      throw new Error("Link check blocked: unsupported or unsafe URL.");
+    }
+  } catch (error) {
+    return {
+      status: "blocked",
+      httpStatus: null,
+      redirectUrl: null,
+      responseTime: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : "Invalid URL.",
+    };
+  }
+
+  let currentUrl = new URL(originalUrl);
+  let firstRedirectStatus: number | null = null;
+  let redirected = false;
+
+  for (
+    let redirectCount = 0;
+    redirectCount <= MAX_REDIRECTS;
+    redirectCount += 1
+  ) {
+    const signal = AbortSignal.timeout(FETCH_TIMEOUT_MS);
+    let dispatcher: Agent | null = null;
+    try {
+      const pinnedAddress = await raceWithAbort(
+        resolvePublicAddress(currentUrl.hostname),
+        signal,
+      );
+      dispatcher = new Agent({
+        connect: {
+          lookup: (_hostname, options, callback) => {
+            if (options?.all) {
+              callback(null, [pinnedAddress]);
+            } else {
+              callback(null, pinnedAddress.address, pinnedAddress.family);
+            }
+          },
+        },
+        connections: 1,
+        connectTimeout: FETCH_TIMEOUT_MS,
+        headersTimeout: FETCH_TIMEOUT_MS,
+        bodyTimeout: FETCH_TIMEOUT_MS,
+        maxResponseSize: 1024,
+        pipelining: 0,
+      });
+      const response = await undiciFetch(currentUrl, {
+        dispatcher,
+        redirect: "manual",
+        signal,
+        headers: {
+          accept: "*/*",
+          "accept-encoding": "identity",
+          range: "bytes=0-0",
+          "user-agent": USER_AGENT,
+        },
+      });
+
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get("location");
+        await response.body?.cancel();
+        if (!location || redirectCount === MAX_REDIRECTS) {
+          return {
+            status: "broken",
+            httpStatus: response.status,
+            redirectUrl: null,
+            responseTime: Date.now() - startedAt,
+            error: "Redirect limit reached or redirect location missing.",
+          };
+        }
+        const nextUrl = safeHttpUrl(location, currentUrl);
+        if (!nextUrl) {
+          return {
+            status: "blocked",
+            httpStatus: response.status,
+            redirectUrl: null,
+            responseTime: Date.now() - startedAt,
+            error: "Redirect target is not a safe HTTP(S) URL.",
+          };
+        }
+        if (firstRedirectStatus === null) firstRedirectStatus = response.status;
+        redirected = true;
+        currentUrl = new URL(nextUrl);
+        continue;
+      }
+
+      await response.body?.cancel();
+      const httpStatus =
+        redirected && response.status < 400
+          ? firstRedirectStatus
+          : response.status;
+      if (
+        response.status === 401 ||
+        response.status === 403 ||
+        response.status === 429
+      ) {
+        return {
+          status: "blocked",
+          httpStatus,
+          redirectUrl: redirected ? currentUrl.toString() : null,
+          responseTime: Date.now() - startedAt,
+          error: `HTTP ${response.status} ${response.statusText}`.trim(),
+        };
+      }
+      if (response.status < 200 || response.status >= 300) {
+        return {
+          status: "broken",
+          httpStatus,
+          redirectUrl: redirected ? currentUrl.toString() : null,
+          responseTime: Date.now() - startedAt,
+          error: `HTTP ${response.status} ${response.statusText}`.trim(),
+        };
+      }
+      return {
+        status: redirected ? "redirect" : "healthy",
+        httpStatus,
+        redirectUrl: redirected ? currentUrl.toString() : null,
+        responseTime: Date.now() - startedAt,
+        error: null,
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Link check failed.";
+      const timedOut =
+        error instanceof Error &&
+        (error.name === "TimeoutError" || error.name === "AbortError");
+      return {
+        status: timedOut || signal.aborted
+          ? "timeout"
+          : error instanceof UnsafeLinkTargetError
+            ? "blocked"
+            : "broken",
+        httpStatus: firstRedirectStatus,
+        redirectUrl: redirected ? currentUrl.toString() : null,
+        responseTime: Date.now() - startedAt,
+        error:
+          error instanceof UnsafeLinkTargetError
+            ? `Link check blocked: ${message}`
+            : message,
+      };
+    } finally {
+      if (dispatcher) await dispatcher.close();
+    }
+  }
+
+  return {
+    status: "broken",
+    httpStatus: firstRedirectStatus,
+    redirectUrl: currentUrl.toString(),
+    responseTime: Date.now() - startedAt,
+    error: "Redirect limit reached.",
+  };
+}
+
 async function fetchJson(url: URL, signal: AbortSignal): Promise<unknown> {
   const pinnedAddress = await raceWithAbort(
     resolvePublicAddress(url.hostname),
@@ -372,6 +550,107 @@ function extractResult(html: string, pageUrl: URL, fallbackTitle: string): Metad
       safeHttpUrl(iconHref ?? null, pageUrl) ??
       new URL("/favicon.ico", pageUrl).toString(),
     canonicalUrl: safeHttpUrl(canonicalHref ?? null, pageUrl),
+  };
+}
+
+function sanitizeArchivedHtml(html: string, pageUrl: URL): string {
+  const $ = load(html);
+  $("script, iframe, frame, object, embed, form, base").remove();
+  $("meta[http-equiv]").each((_, element) => {
+    const value = $(element).attr("http-equiv")?.toLowerCase();
+    if (value === "refresh" || value === "content-security-policy") {
+      $(element).remove();
+    }
+  });
+  $("link").each((_, element) => {
+    const rel = $(element).attr("rel")?.toLowerCase().split(/\s+/) ?? [];
+    if (
+      rel.some((value) =>
+        ["stylesheet", "preload", "modulepreload", "prefetch"].includes(value),
+      )
+    ) {
+      $(element).remove();
+    }
+  });
+
+  $("*").each((_, element) => {
+    if (!("attribs" in element)) return;
+    const node = $(element);
+    const attributes = element.attribs;
+    for (const [name, value] of Object.entries(attributes)) {
+      if (typeof value !== "string") continue;
+      if (name.toLowerCase().startsWith("on")) {
+        node.removeAttr(name);
+      } else if (name === "srcset") {
+        node.removeAttr(name);
+      } else if (name === "src" || name === "poster") {
+        if (!value.trim().toLowerCase().startsWith("data:image/")) {
+          node.removeAttr(name);
+        }
+      } else if (
+        name === "href" ||
+        name === "xlink:href" ||
+        name === "srcdoc" ||
+        name === "formaction"
+      ) {
+        if (name === "href" && node.is("a")) {
+          const safeLink = safeHttpUrl(value, pageUrl);
+          if (!safeLink) node.removeAttr(name);
+          else {
+            node.attr("href", safeLink);
+            node.attr("rel", "noopener noreferrer");
+          }
+        } else {
+          node.removeAttr(name);
+        }
+      }
+    }
+  });
+
+  const serialized = $.html();
+  if (Buffer.byteLength(serialized) > MAX_HTML_BYTES) {
+    throw new Error("Sanitized HTML exceeds the archive size limit.");
+  }
+  return serialized;
+}
+
+export async function captureWebPage(input: string): Promise<{
+  finalUrl: string;
+  html: string;
+  metadata: MetadataResult;
+}> {
+  let pageUrl: URL;
+  try {
+    pageUrl = new URL(input);
+  } catch {
+    throw new Error("Enter a valid absolute URL.");
+  }
+  if (
+    (pageUrl.protocol !== "http:" && pageUrl.protocol !== "https:") ||
+    !pageUrl.hostname ||
+    pageUrl.username ||
+    pageUrl.password
+  ) {
+    throw new Error("Only public HTTP(S) URLs can be archived.");
+  }
+  const response = await fetchHtml(
+    pageUrl,
+    AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  );
+  const metadata = extractResult(
+    response.html,
+    response.finalUrl,
+    response.finalUrl.hostname,
+  );
+  if (!metadata.content) {
+    throw new Error(
+      "Could not extract enough readable text to archive this page.",
+    );
+  }
+  return {
+    finalUrl: response.finalUrl.toString(),
+    html: sanitizeArchivedHtml(response.html, response.finalUrl),
+    metadata,
   };
 }
 

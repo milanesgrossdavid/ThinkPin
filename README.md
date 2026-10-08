@@ -546,11 +546,27 @@ Aplica `supabase/migrations/20261005233400_create_link_checks.sql` después de
 las migraciones anteriores. `link_checks` mantiene múltiples resultados por
 bookmark como historial, guarda `response_time` en milisegundos y restringe
 RLS a lectura de checks cuyos bookmarks pertenecen al usuario. Las sesiones
-`authenticated` no pueden insertar o alterar resultados; el checker futuro
-deberá escribirlos desde un proceso confiable. `link_checks.status` es
+`authenticated` no pueden insertar o alterar resultados; los procesos
+confiables escriben el historial. `link_checks.status` es
 independiente de `bookmarks.content_status`; esta migración no actualiza ese
-estado ni implementa comprobaciones automáticas. El tipo está en
+estado. El tipo está en
 `src/types/link-check.ts`.
+
+#### Library Health V1
+
+Aplica `supabase/migrations/20261008180000_add_link_health_v1.sql` después
+de crear `link_checks`. `/app/library-health` muestra el último estado por
+bookmark activo y permite filtrar por saludable, redirección, roto, timeout,
+bloqueado o desconocido. Se pueden solicitar comprobaciones manuales, editar
+la URL guardada o archivar el bookmark; actualizar la URL conserva los checks
+históricos y encola una comprobación nueva, sin reemplazar automáticamente
+redirecciones.
+
+Inngest revisa hasta 100 enlaces pendientes o vencidos cada lunes a las 03:00
+UTC; cada enlace vuelve a ser elegible después de siete días. Los destinos y
+redirecciones se validan como HTTP(S) público antes de conectarse. Esta versión
+comprueba disponibilidad HTTP únicamente: los cambios de contenido y snapshots
+comparativos quedan para una fase posterior.
 
 #### Web snapshots
 
@@ -560,9 +576,31 @@ bookmark, con ruta de archivo, texto extraído opcional, hash y fecha de
 captura; también crea el bucket privado `snapshots`. Las rutas de objeto usan
 `<user-id>/<bookmark-id>/...`, y la política de Storage limita la lectura a
 bookmarks del usuario. La tabla concede lectura al propietario; una tarea
-confiable debe guardar archivos y registros de snapshots. `content_documents`
+confiable guarda los archivos y registros de snapshots. `content_documents`
 y `content_chunks` siguen siendo las fuentes para búsqueda y RAG; snapshots
-preserva versiones. El tipo está en `src/types/web-snapshot.ts`.
+preserva versiones.
+
+#### Web Archive V1
+
+Aplica `supabase/migrations/20261008190000_extend_web_snapshots_for_archive.sql`
+después de crear `web_snapshots`. El detalle del bookmark permite capturar
+manualmente una página pública: se guarda HTML sanitizado en Storage privado,
+y texto legible, metadata y hash SHA-256 del texto normalizado en PostgreSQL.
+La captura usa el fetcher con validación de IP pública, redirecciones limitadas,
+timeout y límite de tamaño; el visor devuelve HTML dentro de un sandbox CSP.
+Si el hash coincide con el último snapshot, no duplica la copia.
+
+Snapshot History muestra fecha, título y palabras; se puede abrir una versión
+archivada o comparar dos capturas seleccionadas con Time Machine. La comparación
+calcula bajo demanda diferencias textuales aproximadas (añadido, eliminado y
+modificado) usando el contenido legible; no se guardan diffs y no se comparan
+estructura ni capturas visuales. Para limitar el coste del cálculo, cada
+versión debe contener como máximo 1.200 segmentos de texto.
+Esta entrega no captura screenshots, no archiva automáticamente al guardar o
+por horario, y todavía no aplica restricciones de plan. La captura requiere
+que la página ofrezca texto legible; Chromium/screenshot queda para un worker
+aislado futuro.
+El modelo TypeScript está en `src/types/web-snapshot.ts`.
 
 #### AI usage
 

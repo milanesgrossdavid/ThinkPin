@@ -1,4 +1,5 @@
 import {
+  Activity,
   BookOpenCheck,
   FlaskConical,
   Scale,
@@ -59,12 +60,12 @@ export function DashboardHeader() {
 
             <nav
               aria-label="Explore"
-              className="flex w-full items-center gap-2 sm:justify-end lg:w-auto lg:gap-3"
+              className="flex w-full items-center gap-1 sm:justify-end sm:gap-2 lg:w-auto lg:gap-3"
             >
               <Link
                 href="/app/research"
                 aria-label="Research projects"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-4 sm:text-sm"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <FlaskConical aria-hidden="true" className="size-4" />
                 <span>Research</span>
@@ -73,7 +74,7 @@ export function DashboardHeader() {
               <Link
                 href="/app/decisions"
                 aria-label="Decision boards"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-4 sm:text-sm"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <Scale aria-hidden="true" className="size-4" />
                 <span>Decisions</span>
@@ -82,10 +83,18 @@ export function DashboardHeader() {
               <Link
                 href="/app/learn"
                 aria-label="Learning paths"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-4 sm:text-sm"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
               >
                 <BookOpenCheck aria-hidden="true" className="size-4" />
                 <span>Learn</span>
+              </Link>
+              <Link
+                href="/app/library-health"
+                aria-label="Library Health"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
+              >
+                <Activity aria-hidden="true" className="size-4" />
+                <span>Health</span>
               </Link>
             </nav>
           </div>

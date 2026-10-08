@@ -20,6 +20,7 @@ import { BookmarkThumbnail } from "./BookmarkThumbnail";
 import { BookmarkFavoriteButton } from "./BookmarkFavoriteButton";
 import { BookmarkDetailHeader } from "./bookmark-detail-header";
 import { RelatedBookmarks } from "./related-bookmarks";
+import { WebArchivePanel } from "./web-archive-panel";
 import type { Bookmark } from "./types";
 import { useBookmarkActions } from "./bookmark-interactions-provider";
 import { useAppToast } from "../feedback/AppToaster";
@@ -394,6 +395,8 @@ export function BookmarkDetailView({
               {activeDescription || "No description available."}
             </p>
           </section>
+
+          <WebArchivePanel bookmarkId={bookmark.id} />
 
           <section className="py-5 sm:py-6">
             <div className="flex items-center justify-between gap-3">
