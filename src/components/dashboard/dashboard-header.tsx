@@ -1,4 +1,10 @@
-import { FlaskConical, Search, Sparkles } from "lucide-react";
+import {
+  BookOpenCheck,
+  FlaskConical,
+  Scale,
+  Search,
+  Sparkles,
+} from "lucide-react";
 import Link from "next/link";
 import { DashboardAccountButton } from "./dashboard-account-button";
 
@@ -22,43 +28,66 @@ export function DashboardHeader() {
             </p>
           </div>
 
-          <div className="flex w-full items-center gap-2 lg:w-auto lg:gap-3">
-            <Link
-              href="/app/search"
-              aria-label="Search your memory. Open command menu with Command K."
-              className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-border/70 bg-surface-elevated pl-10 pr-3 text-xs text-text-muted outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 sm:h-11 sm:pr-3 sm:text-sm lg:w-64 lg:flex-none"
-            >
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-text-muted"
-              />
-              <span className="min-w-0 flex-1 truncate">
-                Search your memory...
-              </span>
-              <kbd className="hidden shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-text-muted sm:inline-flex">
-                ⌘ K
-              </kbd>
-            </Link>
+          <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end lg:gap-3">
+            <div className="flex w-full items-center gap-2 lg:w-auto lg:gap-3">
+              <Link
+                href="/app/search"
+                aria-label="Search your memory. Open command menu with Command K."
+                className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-border/70 bg-surface-elevated pl-10 pr-3 text-xs text-text-muted outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 sm:h-11 sm:pr-3 sm:text-sm lg:w-64 lg:flex-none"
+              >
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3.5 top-1/2 size-4.5 -translate-y-1/2 text-text-muted"
+                />
+                <span className="min-w-0 flex-1 truncate">
+                  Search your memory...
+                </span>
+                <kbd className="hidden shrink-0 rounded-md border border-border bg-background px-1.5 py-0.5 text-[10px] text-text-muted sm:inline-flex">
+                  ⌘ K
+                </kbd>
+              </Link>
 
-            <Link
-              href="/app/ask"
-              aria-label="Ask your library"
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:px-4 sm:text-sm"
-            >
-              <Sparkles aria-hidden="true" className="size-4" />
-              <span>Ask</span>
-            </Link>
+              <Link
+                href="/app/ask"
+                aria-label="Ask your library"
+                className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-primary/20 bg-primary/5 px-3 text-xs font-medium text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:px-4 sm:text-sm"
+              >
+                <Sparkles aria-hidden="true" className="size-4" />
+                <span>Ask</span>
+              </Link>
+            </div>
 
-            <Link
-              href="/app/research"
-              aria-label="Research projects"
-              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:px-4 sm:text-sm"
+            <nav
+              aria-label="Explore"
+              className="flex w-full items-center gap-2 sm:justify-end lg:w-auto lg:gap-3"
             >
-              <FlaskConical aria-hidden="true" className="size-4" />
-              <span>Research</span>
-            </Link>
+              <Link
+                href="/app/research"
+                aria-label="Research projects"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-4 sm:text-sm"
+              >
+                <FlaskConical aria-hidden="true" className="size-4" />
+                <span>Research</span>
+              </Link>
 
-            <DashboardAccountButton />
+              <Link
+                href="/app/decisions"
+                aria-label="Decision boards"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-4 sm:text-sm"
+              >
+                <Scale aria-hidden="true" className="size-4" />
+                <span>Decisions</span>
+              </Link>
+
+              <Link
+                href="/app/learn"
+                aria-label="Learning paths"
+                className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-4 sm:text-sm"
+              >
+                <BookOpenCheck aria-hidden="true" className="size-4" />
+                <span>Learn</span>
+              </Link>
+            </nav>
           </div>
         </div>
       </div>

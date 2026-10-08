@@ -3,6 +3,7 @@ import { DashboardHeader } from "../../components/dashboard/dashboard-header";
 import { RecentlySaved } from "../../components/dashboard/recently-saved";
 import { QuickSave } from "../../components/dashboard/quick-save";
 import { MagicCollections } from "../../components/dashboard/magic-collections";
+import { SmartResurfacingSection } from "../../components/dashboard/smart-resurfacing-section";
 import { requireAuth } from "../../lib/supabase/require-auth";
 
 export const metadata: Metadata = {
@@ -18,6 +19,7 @@ export default async function DashboardPage() {
       <DashboardHeader />
       <QuickSave />
       <MagicCollections />
+      <SmartResurfacingSection />
       <RecentlySaved />
     </main>
   );

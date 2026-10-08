@@ -481,6 +481,52 @@ enlaces citados. El informe generado se muestra en la sesión actual y todavía
 no se persiste. Insights, claims y entities quedan para una fase posterior;
 no se inventan automáticamente en esta versión.
 
+#### Decision Boards V1
+
+Aplica `supabase/migrations/20261008123000_create_decision_boards.sql`.
+`/app/decisions` permite crear comparaciones con 2–8 opciones y 2–10 criterios.
+En cada tablero se organiza evidencia por opción y criterio; la evidencia
+puede enlazar un bookmark propio, incluir una nota o ambas cosas. También se
+pueden buscar fuentes en la web; al agregarlas se guardan como bookmarks y se
+asocian al criterio/opción seleccionados. Los extractos de búsqueda se marcan
+como provisionales para que el usuario verifique la fuente original. La
+plataforma no calcula puntuaciones ni selecciona un ganador. RLS limita
+tableros y datos asociados a su propietario y verifica la propiedad de los
+bookmarks citados.
+
+#### Learning Mode V1
+
+Aplica `supabase/migrations/20261008140000_create_learning_mode.sql` y
+`supabase/migrations/20261008154500_add_learning_external_sources.sql`.
+`/app/learn` permite crear un Learning Path desde un tema, recuperando
+bookmarks propios mediante búsqueda semántica y full-text. El proveedor de IA
+propone etapas y la aplicación valida que cada recurso corresponda a un
+bookmark existente y del usuario; las etapas reutilizan bookmarks, no duplican
+su contenido. En el workspace se puede abrir cada recurso, marcarlo como
+estudiado o deshacer esa marca, y pedir una explicación basada en fragmentos
+indexados con enlaces a las fuentes. También se puede pegar una URL pública
+para extraer su texto y usarlo directamente como fuente de un path, sin crear
+un bookmark; la URL y el texto se guardan únicamente en el path. Al elegir una
+fuente web, también se puede activar la opción para guardar la URL como
+bookmark. Las fuentes externas deben ser páginas HTTP(S) públicas con texto
+legible. Los paths se pueden eliminar sin borrar los bookmarks de la
+biblioteca. Abrir páginas no altera el progreso.
+Quizzes, revisión adaptativa y estadísticas de dominio quedan para fases
+posteriores.
+
+#### Smart Resurfacing V1
+
+Aplica `supabase/migrations/20261008170000_create_resurfacing_feedback.sql`.
+El dashboard puede sugerir hasta tres bookmarks guardados hace al menos 30
+días cuando conectan con bookmarks guardados durante los últimos 7 días. La
+selección combina similitud semántica cuando hay proveedor e índices
+disponibles con coincidencias de texto, tags, intent, colección y calidad del
+contenido. Solo considera bookmarks propios no archivados y evita los
+descartados o ya redescubiertos; abrir o redescubrir lleva al bookmark y guarda
+feedback. La explicación se basa en las señales disponibles y no afirma usar
+búsquedas ni aperturas recientes. No crea notificaciones ni ejecuta tareas
+programadas.
+
 #### Reminders V1
 
 Aplica `supabase/migrations/20261005233200_create_reminders.sql` después de

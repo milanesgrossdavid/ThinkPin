@@ -489,3 +489,49 @@ export async function extractMetadata(input: string | URL): Promise<MetadataResu
 
   return metadata;
 }
+
+export async function extractLearningSource(input: string): Promise<{
+  title: string;
+  description: string | null;
+  content: string;
+  url: string;
+  domain: string;
+}> {
+  let pageUrl: URL;
+  try {
+    pageUrl = new URL(input);
+  } catch {
+    throw new Error("Enter a valid public web URL.");
+  }
+  if (
+    (pageUrl.protocol !== "http:" && pageUrl.protocol !== "https:") ||
+    !pageUrl.hostname ||
+    pageUrl.username ||
+    pageUrl.password
+  ) {
+    throw new Error("Only public HTTP and HTTPS URLs are supported.");
+  }
+
+  const { html, finalUrl } = await fetchHtml(
+    pageUrl,
+    AbortSignal.timeout(FETCH_TIMEOUT_MS),
+  );
+  const metadata = extractResult(
+    html,
+    finalUrl,
+    finalUrl.hostname.replace(/^www\./, ""),
+  );
+  if (!metadata.content) {
+    throw new Error(
+      "We couldn't extract readable text from that page. Try another public article or documentation URL.",
+    );
+  }
+
+  return {
+    title: metadata.title,
+    description: metadata.description,
+    content: metadata.content,
+    url: finalUrl.toString(),
+    domain: finalUrl.hostname.replace(/^www\./, ""),
+  };
+}
