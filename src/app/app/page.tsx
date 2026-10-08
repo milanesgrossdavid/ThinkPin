@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DashboardHeader } from "../../components/dashboard/dashboard-header";
 import { RecentlySaved } from "../../components/dashboard/recently-saved";
 import { QuickSave } from "../../components/dashboard/quick-save";
+import { MagicCollections } from "../../components/dashboard/magic-collections";
 import { requireAuth } from "../../lib/supabase/require-auth";
 
 export const metadata: Metadata = {
@@ -16,6 +17,7 @@ export default async function DashboardPage() {
     <main className="min-h-svh bg-background pb-28 md:pb-0">
       <DashboardHeader />
       <QuickSave />
+      <MagicCollections />
       <RecentlySaved />
     </main>
   );

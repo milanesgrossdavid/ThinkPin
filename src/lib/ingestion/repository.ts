@@ -79,11 +79,36 @@ export async function saveContentEmbeddings(
   documentId: string,
   result: AIEmbeddingResult,
 ) {
-  const rows = result.embeddings.map((embedding, chunkIndex) => ({
-    document_id: documentId,
-    chunk_index: chunkIndex,
-    embedding: formatVector(embedding, result.dimensions),
-  }));
+  const { data: chunks, error: chunksError } = await supabase
+    .from("content_chunks")
+    .select("chunk_index, content, token_count")
+    .eq("document_id", documentId)
+    .order("chunk_index");
+  if (chunksError) {
+    throw chunksError;
+  }
+  if (chunks.length !== result.embeddings.length) {
+    throw new Error(
+      "Embedding count does not match the saved content chunk count.",
+    );
+  }
+
+  const rows = chunks.map((chunk) => {
+    const embedding = result.embeddings[chunk.chunk_index];
+    if (!embedding) {
+      throw new Error(
+        `Embedding is missing for content chunk ${chunk.chunk_index}.`,
+      );
+    }
+
+    return {
+      document_id: documentId,
+      chunk_index: chunk.chunk_index,
+      content: chunk.content,
+      token_count: chunk.token_count,
+      embedding: formatVector(embedding, result.dimensions),
+    };
+  });
   const { error } = await supabase
     .from("content_chunks")
     .upsert(rows, { onConflict: "document_id,chunk_index" });

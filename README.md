@@ -474,7 +474,12 @@ proyecto/bookmark) y notas de investigación independientes. RLS comprueba que
 el usuario sea propietario del proyecto y del bookmark fuente; highlights del
 bookmark siguen siendo una entidad separada. Las fechas `updated_at` se
 actualizan con el trigger compartido. Los tipos están en
-`src/types/research.ts`; claims y entities quedan para una fase posterior.
+`src/types/research.ts`. La interfaz está disponible en `/app/research` y
+permite crear proyectos, seleccionar bookmarks como fuentes, guardar notas y
+generar un informe bajo demanda con fragmentos de las fuentes seleccionadas y
+enlaces citados. El informe generado se muestra en la sesión actual y todavía
+no se persiste. Insights, claims y entities quedan para una fase posterior;
+no se inventan automáticamente en esta versión.
 
 #### Reminders V1
 

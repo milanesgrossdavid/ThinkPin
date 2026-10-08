@@ -1,7 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AIEmbeddingResult } from "../ai/types";
 import { formatVector } from "../ai/vector";
-import type { SearchBookmark, SearchFilters, SearchMode } from "./types";
+import type {
+  RelatedBookmark,
+  SearchBookmark,
+  SearchFilters,
+  SearchMode,
+} from "./types";
 
 type SearchRow = {
   id: string;
@@ -25,6 +30,70 @@ type SearchRow = {
   score: number;
   matched_fields: string[];
 };
+
+type RelatedBookmarkRow = {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string;
+  domain: string;
+  image_url: string | null;
+  content_type: string;
+  created_at: string;
+  tags: string[] | null;
+  similarity: number;
+};
+
+export async function hasBookmarkEmbeddings(
+  supabase: SupabaseClient,
+  bookmarkId: string,
+) {
+  const { data: documents, error: documentsError } = await supabase
+    .from("content_documents")
+    .select("id")
+    .eq("bookmark_id", bookmarkId);
+  if (documentsError) throw documentsError;
+  if (documents.length === 0) return false;
+
+  const { data, error } = await supabase
+    .from("content_chunks")
+    .select("id")
+    .in(
+      "document_id",
+      documents.map((document) => document.id),
+    )
+    .not("embedding", "is", null)
+    .limit(1);
+  if (error) throw error;
+  return data.length > 0;
+}
+
+export async function findRelatedBookmarks(
+  supabase: SupabaseClient,
+  bookmarkId: string,
+  limit = 6,
+  minimumSimilarity = 0.35,
+): Promise<RelatedBookmark[]> {
+  const { data, error } = await supabase.rpc("find_related_bookmarks", {
+    p_bookmark_id: bookmarkId,
+    p_limit: limit,
+    p_min_similarity: minimumSimilarity,
+  });
+  if (error) throw error;
+
+  return ((data ?? []) as RelatedBookmarkRow[]).map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    url: row.url,
+    domain: row.domain,
+    imageUrl: row.image_url,
+    contentType: row.content_type,
+    createdAt: row.created_at,
+    tags: row.tags ?? [],
+    similarity: Number(row.similarity),
+  }));
+}
 
 export async function searchBookmarks(
   supabase: SupabaseClient,

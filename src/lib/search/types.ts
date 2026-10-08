@@ -32,3 +32,16 @@ export type SearchBookmark = {
   score: number;
   matchedFields: string[];
 };
+
+export type RelatedBookmark = {
+  id: string;
+  title: string;
+  description: string | null;
+  url: string;
+  domain: string;
+  imageUrl: string | null;
+  contentType: string;
+  createdAt: string;
+  tags: string[];
+  similarity: number;
+};

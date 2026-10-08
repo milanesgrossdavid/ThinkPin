@@ -11,6 +11,7 @@ import {
 } from "../../ingestion/repository";
 import { hashNormalizedContent } from "../../ingestion/hash-content";
 import { getAIProvider } from "../../ai/router";
+import type { AIEmbeddingResult } from "../../ai/types";
 import {
   getBookmarkForIngestion,
   saveBookmarkAIEnrichment,
@@ -97,49 +98,7 @@ export const bookmarkIngestion = inngest.createFunction(
         .filter(Boolean)
         .join("\n");
     const chunks = chunkContent(content);
-    const enrichmentWork = (async () => {
-      try {
-        const enrichmentProvider = getAIProvider("bookmark-enrichment");
-        if (enrichmentProvider) {
-          const generatedEnrichment = await step.run(
-            "generate-bookmark-enrichment",
-            () =>
-              enrichmentProvider.enrichBookmark({
-                url: bookmark.url,
-                title: metadata.title || bookmark.domain,
-                description: metadata.description,
-                content: metadata.content,
-                collections: bookmark.collections,
-              }),
-          );
-          const enrichment = {
-            ...generatedEnrichment,
-            contentType:
-              platformContentType(bookmark.url) ??
-              generatedEnrichment.contentType,
-            ...(isYouTubeUrl(bookmark.url) ? { title: metadata.title } : {}),
-          };
-          await step.run("save-bookmark-enrichment", () =>
-            saveBookmarkAIEnrichment(
-              createAdminClient(),
-              bookmark,
-              enrichment,
-            ),
-          );
-        } else {
-          console.info(
-            "Skipped bookmark text enrichment because AI_BOOKMARK_ENRICHMENT_PROVIDER is disabled.",
-            { bookmarkId: bookmark.id },
-          );
-        }
-      } catch (error) {
-        console.error(
-          "Optional bookmark AI enrichment failed; continuing deterministic ingestion.",
-          { bookmarkId: bookmark.id, error },
-        );
-      }
-    })();
-    const documentWork = step.run("save-content-document-and-chunks", () =>
+    const savedDocument = await step.run("save-content-document-and-chunks", () =>
       saveContentDocument(createAdminClient(), {
         bookmarkId: bookmark.id,
         content,
@@ -147,36 +106,34 @@ export const bookmarkIngestion = inngest.createFunction(
         chunks,
       }),
     );
-    const [, savedDocument] = await Promise.all([enrichmentWork, documentWork]);
 
     const embeddingProvider = getAIProvider("embedding");
+    let embeddingResult: AIEmbeddingResult | null = null;
     if (embeddingProvider) {
-      const embeddingResult = await step.run("generate-content-embeddings", async () => {
-        const contentChunks = await loadContentChunks(
-          createAdminClient(),
-          savedDocument.documentId,
-        );
-        const result = await embeddingProvider.generateEmbedding({
-          input: contentChunks.map((chunk) => chunk.content),
-        });
-        if (result.embeddings.length !== contentChunks.length) {
-          throw new Error("Embedding provider returned an incomplete result.");
-        }
-        return result;
-      });
+      const generatedEmbeddingResult = await step.run(
+        "generate-content-embeddings",
+        async () => {
+          const contentChunks = await loadContentChunks(
+            createAdminClient(),
+            savedDocument.documentId,
+          );
+          const result = await embeddingProvider.generateEmbedding({
+            input: contentChunks.map((chunk) => chunk.content),
+          });
+          if (result.embeddings.length !== contentChunks.length) {
+            throw new Error("Embedding provider returned an incomplete result.");
+          }
+          return result;
+        },
+      );
+      embeddingResult = generatedEmbeddingResult;
 
       await step.run("save-content-embeddings", () =>
         saveContentEmbeddings(
           createAdminClient(),
           savedDocument.documentId,
-          embeddingResult,
+          generatedEmbeddingResult,
         ),
-      );
-      await step.run("record-embedding-usage", () =>
-        recordEmbeddingUsage(createAdminClient(), {
-          userId: bookmark.userId,
-          embedding: embeddingResult,
-        }),
       );
     } else {
       console.info(
@@ -184,6 +141,7 @@ export const bookmarkIngestion = inngest.createFunction(
         { bookmarkId: bookmark.id },
       );
     }
+
     await step.run("mark-bookmark-ready", () =>
       setBookmarkContentStatus(
         createAdminClient(),
@@ -192,6 +150,59 @@ export const bookmarkIngestion = inngest.createFunction(
         "ready",
       ),
     );
+
+    if (embeddingResult) {
+      try {
+        await step.run("record-embedding-usage", () =>
+          recordEmbeddingUsage(createAdminClient(), {
+            userId: bookmark.userId,
+            embedding: embeddingResult,
+          }),
+        );
+      } catch (error) {
+        console.error(
+          "Embedding usage could not be recorded after indexing succeeded.",
+          { bookmarkId: bookmark.id, error },
+        );
+      }
+    }
+
+    try {
+      const enrichmentProvider = getAIProvider("bookmark-enrichment");
+      if (enrichmentProvider) {
+        const generatedEnrichment = await step.run(
+          "generate-bookmark-enrichment",
+          () =>
+            enrichmentProvider.enrichBookmark({
+              url: bookmark.url,
+              title: metadata.title || bookmark.domain,
+              description: metadata.description,
+              content: metadata.content,
+              collections: bookmark.collections,
+            }),
+        );
+        const enrichment = {
+          ...generatedEnrichment,
+          contentType:
+            platformContentType(bookmark.url) ??
+            generatedEnrichment.contentType,
+          ...(isYouTubeUrl(bookmark.url) ? { title: metadata.title } : {}),
+        };
+        await step.run("save-bookmark-enrichment", () =>
+          saveBookmarkAIEnrichment(createAdminClient(), bookmark, enrichment),
+        );
+      } else {
+        console.info(
+          "Skipped bookmark text enrichment because AI_BOOKMARK_ENRICHMENT_PROVIDER is disabled.",
+          { bookmarkId: bookmark.id },
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Optional bookmark AI enrichment failed; continuing deterministic ingestion.",
+        { bookmarkId: bookmark.id, error },
+      );
+    }
 
     return { bookmarkId: bookmark.id, contentStatus: "ready" };
   },

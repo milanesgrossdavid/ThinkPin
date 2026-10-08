@@ -19,6 +19,7 @@ import {
 import { BookmarkThumbnail } from "./BookmarkThumbnail";
 import { BookmarkFavoriteButton } from "./BookmarkFavoriteButton";
 import { BookmarkDetailHeader } from "./bookmark-detail-header";
+import { RelatedBookmarks } from "./related-bookmarks";
 import type { Bookmark } from "./types";
 import { useBookmarkActions } from "./bookmark-interactions-provider";
 import { useAppToast } from "../feedback/AppToaster";
@@ -650,6 +651,8 @@ export function BookmarkDetailView({
             </div>
           )}
         </section>
+
+        <RelatedBookmarks bookmarkId={bookmark.id} />
 
         <section className="mt-8 pb-8" aria-labelledby="bookmark-activity-title">
           <h2

@@ -1,4 +1,4 @@
-import { Search, Sparkles } from "lucide-react";
+import { FlaskConical, Search, Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DashboardAccountButton } from "./dashboard-account-button";
 
@@ -47,6 +47,15 @@ export function DashboardHeader() {
             >
               <Sparkles aria-hidden="true" className="size-4" />
               <span>Ask</span>
+            </Link>
+
+            <Link
+              href="/app/research"
+              aria-label="Research projects"
+              className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-border bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:px-4 sm:text-sm"
+            >
+              <FlaskConical aria-hidden="true" className="size-4" />
+              <span>Research</span>
             </Link>
 
             <DashboardAccountButton />

@@ -13,6 +13,7 @@ import {
   BookmarkPlus,
   Command,
   FolderPlus,
+  FlaskConical,
   Heart,
   LayoutDashboard,
   Library,
@@ -102,6 +103,15 @@ const commands: CommandItem[] = [
     shortcut: "G C",
     icon: FolderPlus,
     href: "/app/collections",
+    section: "Navigation",
+  },
+  {
+    id: "research",
+    label: "Open research",
+    description: "Investigate a question using selected library sources",
+    keywords: ["research", "project", "investigate", "report", "sources"],
+    icon: FlaskConical,
+    href: "/app/research",
     section: "Navigation",
   },
   {
