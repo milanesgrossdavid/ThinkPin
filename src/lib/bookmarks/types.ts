@@ -46,6 +46,7 @@ export type BookmarkForIngestion = {
   id: string;
   userId: string;
   url: string;
+  title: string;
   domain: string;
   collections: string[];
 };

@@ -34,6 +34,7 @@ import {
 type CreateBookmarkDependencies = {
   userClient: SupabaseClient;
   userId: string;
+  initialTitle?: string;
   createAdminClient: () => SupabaseClient;
   publishCreated: (bookmarkId: string, userId: string) => Promise<void>;
   enrichMissingTags: boolean;
@@ -97,6 +98,7 @@ export async function createBookmark(
     ...validated,
     normalizedUrl: normalizeUrl(validated.normalizedUrl),
     userId,
+    initialTitle: dependencies.initialTitle,
   });
 
   if (created.duplicate) {
@@ -445,7 +447,10 @@ export async function saveBookmarkMetadata(
       metadata.siteName,
   );
   const fields = {
-    title: metadata.title || bookmark.domain,
+    title:
+      metadata.title && metadata.title !== bookmark.domain
+        ? metadata.title
+        : bookmark.title || bookmark.domain,
     description: metadata.description,
     imageUrl: metadata.image,
     faviconUrl: metadata.favicon,

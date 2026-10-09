@@ -1,6 +1,11 @@
 "use client";
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Check, FolderPlus, Sparkles, X } from "lucide-react";
 import {
   getBookmarkDetailsSnapshot,
@@ -14,19 +19,16 @@ import {
 } from "../../lib/bookmarks";
 import {
   bookmarkIdsForCollection,
-  createCollection,
-  defaultCollectionId,
   getCollectionsSnapshot,
   getMembershipsSnapshot,
   getServerCollectionsSnapshot,
   getServerMembershipsSnapshot,
   loadMemberships,
   loadCollections,
-  setCollectionBookmarkIds,
   subscribeToCollections,
   subscribeToMemberships,
 } from "../../lib/collections";
-import { mockCollections } from "../../lib/mock/collections";
+import { mutatePrivateCollection, syncPrivateCollections } from "../../lib/collections/client";
 import { useAppToast } from "../feedback/AppToaster";
 
 const suggestionStatusStorageKey = "thinkpin:smart-collection-suggestions";
@@ -176,8 +178,7 @@ function makeSuggestions(
               collection.name.toLocaleLowerCase() === existingName.toLocaleLowerCase(),
           )
         : null;
-      const collectionId = existingCollection?.id ??
-        (existingName ? defaultCollectionId(existingName) : undefined);
+      const collectionId = existingCollection?.id;
       const assignedIds = existingName && collectionId
         ? bookmarkIdsForCollection(
             collectionId,
@@ -243,8 +244,18 @@ export function MagicCollections() {
   const [description, setDescription] = useState("");
   const [selectedBookmarkIds, setSelectedBookmarkIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState("");
+  const [privateCollectionsError, setPrivateCollectionsError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const toast = useAppToast();
+
+  useEffect(() => {
+    syncPrivateCollections().catch((error: unknown) => {
+      const reason =
+        error instanceof Error ? error.message : "Please refresh and try again.";
+      setPrivateCollectionsError(reason);
+      toast.error("Couldn't load collections", reason);
+    });
+  }, [toast]);
 
   const { suggestions, bookmarksById, collectionNames, loadError } =
     useMemo(() => {
@@ -295,11 +306,7 @@ export function MagicCollections() {
         const customCollections = loadCollections(collectionsSnapshot);
         const memberships = loadMemberships(membershipsSnapshot);
         const names = [
-          ...new Set([
-            ...mockCollections.map((collection) => collection.name),
-            ...bookmarks.map((bookmark) => bookmark.collection),
-            ...customCollections.map((collection) => collection.name),
-          ]),
+          ...new Set(customCollections.map((collection) => collection.name)),
         ];
         const statuses = parseSuggestionStatus(statusesSnapshot);
         return {
@@ -352,56 +359,62 @@ export function MagicCollections() {
     }
   }
 
-  function createSuggestedCollection() {
+  async function createSuggestedCollection() {
     if (!customizing || isSaving) return;
     setIsSaving(true);
     setActionError("");
     try {
-      const collection =
-        customizing.kind === "create"
-          ? createCollection(name, collectionNames, description)
-          : null;
-      const collectionId = collection?.id ?? customizing.collectionId;
-      const collectionName = collection?.name ?? customizing.name;
-      if (!collectionId) {
-        throw new Error("The suggested collection could not be found.");
-      }
-      try {
+      let collectionName = customizing.name;
+      if (customizing.kind === "create") {
+        const normalizedName = name.trim().replace(/\s+/g, " ");
+        if (
+          collectionNames.some(
+            (existingName) =>
+              existingName.toLocaleLowerCase() === normalizedName.toLocaleLowerCase(),
+          )
+        ) {
+          throw new Error("A collection with this name already exists.");
+        }
+        collectionName = normalizedName;
+        await mutatePrivateCollection("create", {
+          name,
+          description,
+          bookmarkIds: selectedBookmarkIds,
+        });
+      } else {
+        const collectionId = customizing.collectionId;
+        if (!collectionId) {
+          throw new Error("The suggested collection could not be found.");
+        }
         const currentMemberships = loadMemberships(getMembershipsSnapshot());
-        const currentIds =
+        const currentIds: string[] =
           currentMemberships[collectionId] ??
           customizing.bookmarkIds.filter((id) =>
             bookmarksById.get(id)?.collection.toLocaleLowerCase() ===
             collectionName.toLocaleLowerCase(),
           );
-        setCollectionBookmarkIds(collectionId, [
-          ...currentIds,
-          ...selectedBookmarkIds,
-        ]);
-        try {
-          saveSuggestionStatus({
-            ...parseSuggestionStatus(getSuggestionStatusSnapshot()),
-            [customizing.id]: "created",
-          });
-        } catch (error) {
-          console.error(
-            "Collection was saved but suggestion status could not be recorded.",
-            error,
-          );
-        }
-        toast.success(
-          customizing.kind === "add"
-            ? `Added bookmarks to ${collectionName}`
-            : `${collectionName} collection created`,
-        );
-        setCustomizing(null);
+        await mutatePrivateCollection("members", {
+          collectionId,
+          bookmarkIds: [...new Set([...currentIds, ...selectedBookmarkIds])],
+        });
+      }
+      try {
+        saveSuggestionStatus({
+          ...parseSuggestionStatus(getSuggestionStatusSnapshot()),
+          [customizing.id]: "created",
+        });
       } catch (error) {
-        const message =
-          error instanceof Error ? error.message : "Storage is unavailable.";
-        setActionError(
-          `The collection was created, but its bookmarks could not be assigned: ${message}`,
+        console.error(
+          "Collection was saved but suggestion status could not be recorded.",
+          error,
         );
       }
+      toast.success(
+        customizing.kind === "add"
+          ? `Added bookmarks to ${collectionName}`
+          : `${collectionName} collection created`,
+      );
+      setCustomizing(null);
     } catch (error) {
       const message =
         error instanceof Error
@@ -412,6 +425,16 @@ export function MagicCollections() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  if (privateCollectionsError) {
+    return (
+      <section className="px-5 py-4 sm:px-8 lg:px-12">
+        <div role="alert" className="mx-auto max-w-container-xl rounded-2xl border border-error/30 bg-error/5 p-4 text-sm text-text">
+          Private collections could not be synchronized: {privateCollectionsError}
+        </div>
+      </section>
+    );
   }
 
   if (loadError) {

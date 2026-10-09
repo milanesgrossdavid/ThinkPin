@@ -402,45 +402,54 @@ export async function replaceBookmarkCollection(
   bookmarkId: string,
   name: string | null,
 ) {
-  if (name === null) {
-    const { error } = await supabase
-      .from("bookmark_collections")
-      .delete()
-      .eq("bookmark_id", bookmarkId);
-    if (error) throw error;
-    return;
-  }
-
-  const { data: collection, error: findError } = await supabase
+  let collectionId: string | null = null;
+  const { data: collections, error: findError } = await supabase
     .from("collections")
-    .select("id")
-    .eq("user_id", userId)
-    .eq("name", name)
-    .maybeSingle();
+    .select("id, name")
+    .eq("user_id", userId);
   if (findError) throw findError;
 
-  let collectionId = collection?.id;
-  if (!collectionId) {
-    const { data: created, error: createError } = await supabase
-      .from("collections")
-      .insert({ user_id: userId, name })
-      .select("id")
-      .single();
-    if (createError) throw createError;
-    collectionId = created.id;
+  if (name !== null) {
+    const normalizedName = name.trim().replace(/\s+/g, " ");
+    if (!normalizedName) throw new TypeError("Collection name is required.");
+    collectionId = collections.find(
+      (collection) =>
+        collection.name.toLocaleLowerCase() === normalizedName.toLocaleLowerCase(),
+    )?.id ?? null;
+    if (!collectionId) {
+      const { data: created, error: createError } = await supabase
+        .from("collections")
+        .insert({
+          user_id: userId,
+          name: normalizedName,
+          visibility: "private",
+        })
+        .select("id")
+        .single();
+      if (createError?.code === "23505") {
+        const { data: refreshed, error: retryError } = await supabase
+          .from("collections")
+          .select("id, name")
+          .eq("user_id", userId);
+        if (retryError) throw retryError;
+        collectionId = refreshed.find(
+          (collection) =>
+            collection.name.toLocaleLowerCase() === normalizedName.toLocaleLowerCase(),
+        )?.id ?? null;
+        if (!collectionId) throw createError;
+      } else if (createError) {
+        throw createError;
+      } else {
+        collectionId = created.id;
+      }
+    }
   }
 
-  const { error: removeError } = await supabase
-    .from("bookmark_collections")
-    .delete()
-    .eq("user_id", userId)
-    .eq("bookmark_id", bookmarkId);
-  if (removeError) throw removeError;
-
-  const { error: insertError } = await supabase
-    .from("bookmark_collections")
-    .insert({ user_id: userId, bookmark_id: bookmarkId, collection_id: collectionId });
-  if (insertError) throw insertError;
+  const { error } = await supabase.rpc("replace_bookmark_collection", {
+    p_bookmark_id: bookmarkId,
+    p_collection_id: collectionId,
+  });
+  if (error) throw error;
 }
 
 export async function findBookmarkByUrl(
@@ -485,6 +494,7 @@ export async function createBookmark(
     originalUrl: string;
     normalizedUrl: string;
     domain: string;
+    initialTitle?: string;
   },
 ): Promise<CreateBookmarkResult> {
   const normalizedUrl = input.normalizedUrl;
@@ -505,7 +515,7 @@ export async function createBookmark(
       user_id: input.userId,
       url: input.originalUrl,
       normalized_url: normalizedUrl,
-      title: input.domain,
+      title: input.initialTitle?.trim() || input.domain,
       domain: input.domain,
       content_status: "pending",
       is_favorite: false,
@@ -587,7 +597,7 @@ export async function findBookmarkForIngestion(
 ): Promise<BookmarkForIngestion> {
   const { data, error } = await supabase
     .from("bookmarks")
-    .select("id, user_id, url, domain")
+    .select("id, user_id, url, title, domain")
     .eq("id", bookmarkId)
     .eq("user_id", userId)
     .single();
@@ -607,6 +617,7 @@ export async function findBookmarkForIngestion(
     id: data.id,
     userId: data.user_id,
     url: data.url,
+    title: data.title,
     domain: data.domain,
     collections: [
       "Development",

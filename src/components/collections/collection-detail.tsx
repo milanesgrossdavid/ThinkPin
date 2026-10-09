@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -34,7 +35,6 @@ import {
 } from "../../lib/bookmarks";
 import {
   bookmarkIdsForCollection,
-  defaultCollectionId,
   getCollectionsSnapshot,
   getMembershipsSnapshot,
   getServerCollectionsSnapshot,
@@ -44,8 +44,7 @@ import {
   subscribeToCollections,
   subscribeToMemberships,
 } from "../../lib/collections";
-import { mockCollections } from "../../lib/mock/collections";
-import { mockSetCollectionBookmarkIds } from "../../lib/mock-actions/collections";
+import { mutatePrivateCollection, syncPrivateCollections } from "../../lib/collections/client";
 import { ErrorState } from "../feedback/ErrorState";
 import { useAppToast } from "../feedback/AppToaster";
 import { ActionButton } from "../ui/ActionButton";
@@ -150,17 +149,10 @@ function createCollectionModel(
   const customCollection = customCollections.find(
     (item) => item.id === collectionId,
   );
-  const mockCollection = mockCollections.find(
-    (item) => defaultCollectionId(item.name) === collectionId,
-  );
-  const collectionName =
-    customCollection?.name ??
-    mockCollection?.name ??
-    allBookmarks.find((item) => defaultCollectionId(item.topic) === collectionId)
-      ?.topic;
-  if (!collectionName) {
+  if (!customCollection) {
     return null;
   }
+  const collectionName = customCollection.name;
 
   const memberships = loadMemberships(membershipsSnapshot);
   const memberIds = bookmarkIdsForCollection(
@@ -173,10 +165,7 @@ function createCollectionModel(
   return {
     id: collectionId,
     name: collectionName,
-    description:
-      customCollection?.description ??
-      mockCollection?.description ??
-      "A thoughtful collection of things you want to remember.",
+    description: customCollection.description ?? "",
     allBookmarks,
     memberIds,
     bookmarks: allBookmarks.filter((bookmark) => memberIds.has(bookmark.id)),
@@ -239,8 +228,18 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
   const [feedback, setFeedback] = useState("");
   const [saveSucceeded, setSaveSucceeded] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [syncError, setSyncError] = useState("");
   const [isPending, startTransition] = useTransition();
   const toast = useAppToast();
+
+  useEffect(() => {
+    syncPrivateCollections().catch((error: unknown) => {
+      const reason =
+        error instanceof Error ? error.message : "Please refresh and try again.";
+      setSyncError(reason);
+      toast.error("Couldn't load collections", reason);
+    });
+  }, [toast]);
 
   const availableTypes = useMemo(() => {
     const types = new Set(
@@ -324,11 +323,11 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
     setSaveSucceeded(false);
     setSaveFailed(false);
     startTransition(async () => {
-      const result = await mockSetCollectionBookmarkIds(
-        collection.id,
-        [...selectedIds],
-      );
-      if (result.success) {
+      try {
+        await mutatePrivateCollection("members", {
+          collectionId: collection.id,
+          bookmarkIds: [...selectedIds],
+        });
         setFeedback("Collection updated.");
         setSaveSucceeded(true);
         toast.success("Collection updated");
@@ -337,10 +336,13 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
           setSaveSucceeded(false);
         }, 650);
         return;
+      } catch (error) {
+        const reason =
+          error instanceof Error ? error.message : "The collection could not be saved.";
+        setFeedback(reason);
+        setSaveFailed(true);
+        toast.error("Couldn't update collection", reason);
       }
-      setFeedback(result.error);
-      setSaveFailed(true);
-      toast.error("Couldn't update collection", result.error);
     });
   }
 
@@ -348,11 +350,11 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
     setQuery(event.target.value);
   }
 
-  if (storageError) {
+  if (storageError || syncError) {
     return (
       <main className="min-h-svh bg-background px-5 py-8 sm:px-8">
         <ErrorState
-          description={`We couldn't load this collection. ${storageError}`}
+          description={`We couldn't load this collection. ${storageError || syncError}`}
           onRetry={() => window.location.reload()}
         />
       </main>

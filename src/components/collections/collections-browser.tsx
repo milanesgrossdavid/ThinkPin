@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useMemo,
   useState,
   useTransition,
@@ -27,7 +28,6 @@ import {
 } from "../../lib/bookmarks";
 import {
   bookmarkIdsForCollection,
-  defaultCollectionId,
   getCollectionsSnapshot,
   getMembershipsSnapshot,
   getServerCollectionsSnapshot,
@@ -37,11 +37,7 @@ import {
   subscribeToMemberships,
   subscribeToCollections,
 } from "../../lib/collections";
-import { mockCollections } from "../../lib/mock/collections";
-import {
-  mockCreateCollection,
-  mockRenameCollection,
-} from "../../lib/mock-actions/collections";
+import { mutatePrivateCollection, syncPrivateCollections } from "../../lib/collections/client";
 import { ErrorState } from "../feedback/ErrorState";
 import { useAppToast } from "../feedback/AppToaster";
 import { ActionButton } from "../ui/ActionButton";
@@ -294,9 +290,19 @@ export function CollectionsBrowser({
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [message, setMessage] = useState("");
+  const [syncError, setSyncError] = useState("");
   const [isPending, startTransition] = useTransition();
   const [saveSucceeded, setSaveSucceeded] = useState(false);
   const toast = useAppToast();
+
+  useEffect(() => {
+    syncPrivateCollections().catch((error: unknown) => {
+      const reason =
+        error instanceof Error ? error.message : "Please refresh and try again.";
+      setSyncError(reason);
+      toast.error("Couldn't load collections", reason);
+    });
+  }, [toast]);
 
   const {
     cards,
@@ -352,20 +358,10 @@ export function CollectionsBrowser({
         });
       const memberships = loadMemberships(membershipsSnapshot);
       const customCollections = loadCollections(collectionsSnapshot);
-      const customNames = new Set(customCollections.map((item) => item.name));
-      const collectionNames = [
-        ...new Set([
-          ...mockCollections.map((item) => item.name),
-          ...bookmarks.map((bookmark) => bookmark.topic),
-          ...customCollections.map((item) => item.name),
-        ]),
-      ];
-      const cards = collectionNames
-        .map((collectionName) => {
-          const custom = customCollections.find(
-            (item) => item.name === collectionName,
-          );
-          const id = custom?.id ?? defaultCollectionId(collectionName);
+      const cards = customCollections
+        .map((custom) => {
+          const collectionName = custom.name;
+          const id = custom.id;
           const assignedIds = bookmarkIdsForCollection(
             id,
             collectionName,
@@ -378,22 +374,13 @@ export function CollectionsBrowser({
           return {
             id,
             name: collectionName,
-            description:
-              custom?.description ??
-              mockCollections.find((item) => item.name === collectionName)
-                ?.description ??
-              "",
+            description: custom.description ?? "",
             bookmarks: items,
             tags: collectionTags(items),
-            isCustom: customNames.has(collectionName),
+            isCustom: true,
           };
         })
-        .sort((first, second) => {
-          if (first.isCustom !== second.isCustom) {
-            return first.isCustom ? -1 : 1;
-          }
-          return first.name.localeCompare(second.name);
-        });
+        .sort((first, second) => first.name.localeCompare(second.name));
 
       return { cards, storageError: "" };
     } catch {
@@ -449,16 +436,29 @@ export function CollectionsBrowser({
       const names = cards
         .filter((card) => card.id !== editingCollection?.id)
         .map((card) => card.name);
-      const result = editingCollection
-        ? await mockRenameCollection(editingCollection.id, name, names)
-        : await mockCreateCollection(
-            name,
-            cards.map((card) => card.name),
-            description,
-          );
-      if (!result.success) {
-        setMessage(result.error);
-        toast.error("Couldn't save collection", result.error);
+      const normalizedName = name.trim().replace(/\s+/g, " ").toLocaleLowerCase();
+      if (names.some((existingName) => existingName.toLocaleLowerCase() === normalizedName)) {
+        const reason = "A collection with this name already exists.";
+        setMessage(reason);
+        toast.error("Couldn't save collection", reason);
+        return;
+      }
+      try {
+        await mutatePrivateCollection(
+          editingCollection ? "rename" : "create",
+          editingCollection
+            ? {
+                collectionId: editingCollection.id,
+                name,
+                description,
+              }
+            : { name, description },
+        );
+      } catch (error) {
+        const reason =
+          error instanceof Error ? error.message : "The collection could not be saved.";
+        setMessage(reason);
+        toast.error("Couldn't save collection", reason);
         return;
       }
 
@@ -478,6 +478,14 @@ export function CollectionsBrowser({
 
   return (
     <main className="min-h-svh bg-background">
+      {syncError && (
+        <p
+          role="alert"
+          className="border-b border-error/30 bg-error/5 px-5 py-3 text-center text-sm text-text"
+        >
+          Your collections could not be synchronized: {syncError}
+        </p>
+      )}
       <header className="border-b border-border/60 bg-background px-5 py-7 sm:px-8 sm:py-10 lg:px-12">
         <div className="mx-auto max-w-container-xl">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">

@@ -26,14 +26,13 @@ import { BookmarkFavoriteButton } from "./BookmarkFavoriteButton";
 import { useAppToast } from "../feedback/AppToaster";
 import { ActionButton } from "../ui/ActionButton";
 import type { Bookmark, BookmarkView } from "./types";
-import { mockCollections } from "../../lib/mock/collections";
 import {
-  createCollection,
   getCollectionsSnapshot,
   getServerCollectionsSnapshot,
   loadCollections,
   subscribeToCollections,
 } from "../../lib/collections";
+import { mutatePrivateCollection, syncPrivateCollections } from "../../lib/collections/client";
 import type { BookmarkIntent } from "../../lib/bookmarks";
 
 const intents: BookmarkIntent[] = [
@@ -128,6 +127,15 @@ export function BookmarkCard({
   const [isPending, startTransition] = useTransition();
   const [feedback, setFeedback] = useState("");
   const toast = useAppToast();
+  useEffect(() => {
+    syncPrivateCollections().catch((error: unknown) => {
+      setActionError(
+        error instanceof Error
+          ? error.message
+          : "Private collections could not be synchronized.",
+      );
+    });
+  }, []);
   const unread = unreadOverride ?? interactionState.unread;
   const tags = bookmark.tags ?? [bookmark.topic, bookmark.subtopic];
   const allCollections = useMemo(() => {
@@ -139,12 +147,9 @@ export function BookmarkCard({
     } catch {
       savedNames = [];
     }
-    return [...new Set([
-      ...mockCollections.map((collection) => collection.name),
-      "Shopping",
-      ...savedNames,
-      bookmark.topic,
-    ])].sort((left, right) => left.localeCompare(right));
+    return [...new Set([...savedNames, bookmark.topic])].sort((left, right) =>
+      left.localeCompare(right),
+    );
   }, [bookmark.topic, collectionsSnapshot]);
   const filteredCollections = allCollections.filter((collection) =>
     collection.toLowerCase().includes(collectionSearch.trim().toLowerCase()),
@@ -222,11 +227,19 @@ export function BookmarkCard({
   function runAction(action: () => Promise<boolean>, onSuccess: () => void) {
     setActionError("");
     startTransition(async () => {
-      const succeeded = await action();
-      if (succeeded) {
-        onSuccess();
-      } else {
-        setActionError("We couldn't save that change. Try again.");
+      try {
+        const succeeded = await action();
+        if (succeeded) {
+          onSuccess();
+        } else {
+          setActionError("We couldn't save that change. Try again.");
+        }
+      } catch (error) {
+        setActionError(
+          error instanceof Error
+            ? error.message
+            : "We couldn't save that change. Try again.",
+        );
       }
     });
   }
@@ -790,13 +803,14 @@ export function BookmarkCard({
                         />
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={async () => {
                             try {
-                              const collection = createCollection(
-                                newCollectionName,
-                                allCollections,
+                              await mutatePrivateCollection("create", {
+                                name: newCollectionName,
+                              });
+                              setCollectionDraft(
+                                newCollectionName.trim().replace(/\s+/g, " "),
                               );
-                              setCollectionDraft(collection.name);
                               setNewCollectionName("");
                               setShowCreateCollection(false);
                               setActionError("");

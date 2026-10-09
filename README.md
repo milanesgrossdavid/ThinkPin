@@ -246,8 +246,31 @@ el token en almacenamiento accesible a páginas web o scripts de contenido.
 service de actualización; `DELETE /api/bookmarks/:bookmarkId` elimina el
 registro autenticado. Las cuatro operaciones externas aplican identidad del
 servidor y aislamiento RLS, tanto con cookies como con bearer token.
-El CRUD de colecciones como recurso independiente todavía no está conectado;
-la asociación de un bookmark con una colección sí se persiste.
+El CRUD de colecciones privadas usa `GET` y `POST /api/collections`, con
+operaciones autenticadas para crear, renombrar, reemplazar miembros y mover
+bookmarks. La API solo opera sobre filas propias y la migración de base de
+datos mantiene privadas las colecciones por defecto. Las asociaciones de
+bookmarks se almacenan en `bookmark_collections`.
+
+#### Importar bookmarks HTML
+
+`/app/import` acepta archivos HTML/HTM exportados desde Chrome, Firefox,
+Safari o Edge, con un máximo de 5 MB y 10.000 enlaces. El archivo se analiza en
+memoria y no se conserva. Antes de confirmar, la aplicación muestra enlaces
+nuevos, duplicados dentro del archivo, duplicados de la biblioteca, enlaces
+inválidos y carpetas detectadas. Las rutas de carpetas se conservan en el
+trabajo y se representan como nombres de colección; si superan 100 caracteres
+se mantiene el sufijo más profundo que quepa.
+
+La migración
+`supabase/migrations/20261009150000_add_bookmark_import_jobs.sql` crea trabajos
+y elementos de importación con RLS por usuario. Después de confirmarse,
+`POST /api/imports/bookmarks/:jobId/process` procesa lotes pequeños mediante
+el bookmark service existente y encola cada enlace nuevo en Inngest. El
+progreso y los errores quedan guardados por enlace, de modo que se puede
+reanudar o reintentar elementos fallidos sin volver a cargar el archivo. Los
+duplicados e inválidos se omiten y la importación no espera al enriquecimiento
+asíncrono para terminar.
 
 #### Extensión Chrome
 
@@ -459,6 +482,16 @@ CSS. No se persiste `bookmark_count`: la cantidad se obtiene desde
 `bookmark_collections`. Las colecciones `shared` y `public` siguen protegidas
 por RLS para su propietario hasta que se implementen miembros y políticas de
 compartición explícitas.
+
+Aplica también
+`supabase/migrations/20261009170000_private_collection_persistence.sql` para
+activar la persistencia privada: impone nombres únicos por usuario, y añade
+operaciones transaccionales para
+reemplazar asociaciones o mover un bookmark entre colecciones propias. La API
+usa la sesión autenticada y RLS; las colecciones se crean como `private`.
+Al cargar, la aplicación migra las colecciones locales antiguas que todavía
+no existan en Supabase. Esta migración no habilita lectura anónima ni publica
+colecciones `shared` o `public`.
 
 #### Relaciones, notas y highlights V1
 
@@ -688,6 +721,9 @@ por ahora `anon` no puede consultar las tablas. Si se habilita publicación,
 debe hacerse mediante una vista o función controlada que exponga únicamente
 las columnas públicas necesarias. No se concede acceso público a bookmarks,
 notas, datos de IA ni snapshots.
+
+La gestión de colecciones privadas muestra únicamente registros persistidos,
+sin categorías de colección precargadas.
 
 Después de aplicar todas las migraciones del esquema, aplica
 `supabase/migrations/20261005235500_harden_public_table_grants.sql`. Esta

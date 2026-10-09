@@ -2,7 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Folder, Plus } from "lucide-react";
+import { Folder, Plus, Upload } from "lucide-react";
 import { requestSmartSave } from "../../lib/save-dialog";
 import {
   getBookmarksSnapshot,
@@ -53,6 +53,13 @@ export function LibraryHeader({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/app/import"
+            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border/70 bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
+          >
+            <Upload aria-hidden="true" className="size-4" />
+            <span>Import</span>
+          </Link>
           <Link
             href="/app/collections"
             className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border/70 bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
