@@ -44,6 +44,7 @@ export function LearningPaths({
           saveExternalBookmark:
             sourceMode === "web" && saveExternalBookmark,
         },
+        crypto.randomUUID(),
       );
       if (!result.ok) {
         setError(result.error);

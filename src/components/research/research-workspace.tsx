@@ -301,7 +301,10 @@ export function ResearchWorkspace({
     setMessage("");
     setReport(null);
     startTransition(async () => {
-      const result = await generateResearchSummaryAction(project.id);
+      const result = await generateResearchSummaryAction(
+        project.id,
+        crypto.randomUUID(),
+      );
       if (!result.ok) {
         setMessage(result.error);
         return;

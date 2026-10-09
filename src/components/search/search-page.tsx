@@ -145,7 +145,10 @@ export function SearchPage({
     try {
       const response = await fetch("/api/ask", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: {
+          "content-type": "application/json",
+          "idempotency-key": crypto.randomUUID(),
+        },
         body: JSON.stringify({ question }),
       });
       const payload: unknown = await response.json();
@@ -216,7 +219,13 @@ export function SearchPage({
       q: debouncedQuery,
       mode,
     });
-    fetch(`/api/search?${params}`, { signal: controller.signal })
+    fetch(`/api/search?${params}`, {
+      signal: controller.signal,
+      headers:
+        mode === "semantic"
+          ? { "idempotency-key": crypto.randomUUID() }
+          : undefined,
+    })
       .then(async (response) => {
         const payload: unknown = await response.json();
         if (!response.ok) {

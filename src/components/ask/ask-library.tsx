@@ -112,7 +112,10 @@ export function AskLibrary({
         isGlobalSearch ? "/api/ask/global-search" : "/api/ask",
         {
           method: "POST",
-          headers: { "content-type": "application/json" },
+          headers: {
+            "content-type": "application/json",
+            "idempotency-key": crypto.randomUUID(),
+          },
           body: JSON.stringify(
             isGlobalSearch
               ? { query: normalizedQuestion }
@@ -307,7 +310,23 @@ export function AskLibrary({
         )}
 
         {scope === "library" && response && (
-          <AskSourcesList sources={response.sources} />
+          <>
+            <section
+              aria-labelledby="ask-answer-heading"
+              className="mt-8 rounded-3xl border border-border/70 bg-surface-elevated p-5 shadow-sm sm:p-7"
+            >
+              <h2
+                id="ask-answer-heading"
+                className="text-xs font-semibold uppercase tracking-[0.12em] text-primary"
+              >
+                Answer
+              </h2>
+              <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-text sm:text-base">
+                {response.answer}
+              </p>
+            </section>
+            <AskSourcesList sources={response.sources} />
+          </>
         )}
         {scope === "web" && globalResults && (
           <GlobalSearchResults results={globalResults} />

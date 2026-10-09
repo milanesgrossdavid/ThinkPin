@@ -120,8 +120,10 @@ export async function POST(request: Request) {
     }
 
     const { error: upsertError } = await admin.rpc(
-      "sync_subscription_from_stripe",
+      "sync_subscription_from_stripe_event",
       {
+        p_stripe_event_id: event.id,
+        p_event_type: event.type,
         p_user_id: userId,
         p_stripe_customer_id: customerId,
         p_stripe_subscription_id: subscription.id,

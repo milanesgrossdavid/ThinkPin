@@ -6,6 +6,15 @@ import {
   searchGlobalWeb,
 } from "../../../../lib/ask/web-search";
 import { createClient } from "../../../../lib/supabase/server";
+import { createAdminClient } from "../../../../lib/supabase/admin";
+import { checkEntitlement } from "../../../../lib/billing/entitlements";
+import {
+  CreditOperationInProgressError,
+  InsufficientCreditsError,
+  releaseAICredits,
+  reserveAICredits,
+  settleAICredits,
+} from "../../../../lib/billing/credits";
 import {
   SupabaseAuthUnavailableError,
   throwIfSupabaseAuthUnavailable,
@@ -53,7 +62,50 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json(await searchGlobalWeb(input.query));
+    const access = await checkEntitlement(supabase, user.id, "ai_assistant");
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error: "Ask Your Library is included with Pro.",
+          code: "FEATURE_NOT_INCLUDED",
+          requiredPlan: "pro",
+        },
+        { status: 403 },
+      );
+    }
+
+    const admin = createAdminClient();
+    const reservation = await reserveAICredits(
+      admin,
+      user.id,
+      "ai_search",
+      request.headers.get("idempotency-key") ?? "",
+    );
+    if (reservation.replayResult !== null) {
+      if (
+        typeof reservation.replayResult === "object" &&
+        reservation.replayResult !== null &&
+        "query" in reservation.replayResult &&
+        typeof reservation.replayResult.query === "string" &&
+        "results" in reservation.replayResult &&
+        Array.isArray(reservation.replayResult.results)
+      ) {
+        return NextResponse.json(reservation.replayResult);
+      }
+      throw new Error("The previous global search result could not be recovered.");
+    }
+    try {
+      const response = await searchGlobalWeb(input.query);
+      await settleAICredits(admin, user.id, reservation.requestId, response);
+      return NextResponse.json(response);
+    } catch (error) {
+      try {
+        await releaseAICredits(admin, user.id, reservation.requestId);
+      } catch (releaseError) {
+        console.error("Global search credit reservation could not be released.", releaseError);
+      }
+      throw error;
+    }
   } catch (error) {
     if (error instanceof SupabaseAuthUnavailableError) {
       console.warn("Global web search could not reach Supabase Auth.");
@@ -75,6 +127,24 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: error.message, code: "GLOBAL_SEARCH_PROVIDER_ERROR" },
         { status: 502 },
+      );
+    }
+    if (error instanceof InsufficientCreditsError) {
+      return NextResponse.json(
+        { error: error.message, code: "CREDITS_EXHAUSTED" },
+        { status: 402 },
+      );
+    }
+    if (error instanceof CreditOperationInProgressError) {
+      return NextResponse.json(
+        { error: error.message, code: "REQUEST_IN_PROGRESS" },
+        { status: 409 },
+      );
+    }
+    if (error instanceof Error && error.name === "InvalidIdempotencyKeyError") {
+      return NextResponse.json(
+        { error: error.message, code: "IDEMPOTENCY_KEY_REQUIRED" },
+        { status: 400 },
       );
     }
 

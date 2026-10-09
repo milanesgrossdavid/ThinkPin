@@ -95,6 +95,7 @@ export function LearningPathWorkspace({
       const result = await explainLearningStageAction({
         pathId: path.id,
         stageId,
+        requestId: crypto.randomUUID(),
       });
       if (!result.ok) {
         setMessage(result.error);

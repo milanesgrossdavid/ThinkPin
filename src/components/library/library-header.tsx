@@ -4,6 +4,8 @@ import { useMemo, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Folder, Plus, Upload } from "lucide-react";
 import { requestSmartSave } from "../../lib/save-dialog";
+import { CreditBalance } from "../billing/credit-balance";
+import { DashboardAccountButton } from "../dashboard/dashboard-account-button";
 import {
   getBookmarksSnapshot,
   getServerBookmarksSnapshot,
@@ -36,6 +38,16 @@ export function LibraryHeader({
 
   return (
     <header className="border-b border-border/60 bg-background px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
+      <div className="mx-auto mb-5 flex max-w-container-xl items-center justify-end gap-2">
+        <CreditBalance />
+        <Link
+          href="/app/billing"
+          className="rounded-full px-3 py-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Plan &amp; billing
+        </Link>
+        <DashboardAccountButton />
+      </div>
       <div className="mx-auto flex max-w-container-xl items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">

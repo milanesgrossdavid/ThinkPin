@@ -12,6 +12,14 @@ import {
 } from "../../../lib/supabase/auth-errors";
 import { AIProviderUnavailableError } from "../../../lib/ai/types";
 import { getAIProvider } from "../../../lib/ai/router";
+import { checkEntitlement } from "../../../lib/billing/entitlements";
+import {
+  CreditOperationInProgressError,
+  InsufficientCreditsError,
+  releaseAICredits,
+  reserveAICredits,
+  settleAICredits,
+} from "../../../lib/billing/credits";
 
 export async function GET(request: Request) {
   try {
@@ -50,14 +58,65 @@ export async function GET(request: Request) {
       mode === "semantic" || mode === "hybrid"
         ? getAIProvider("embedding")
         : null;
-    const result = await searchUserBookmarks(
-      supabase,
-      embeddingProvider ? createAdminClient() : null,
-      user.id,
-      query,
-      mode,
-      filters,
-    );
+    const usesSemantic = mode === "semantic" || mode === "hybrid";
+    if (usesSemantic) {
+      const access = await checkEntitlement(supabase, user.id, "semantic_search");
+      if (!access.allowed) {
+        return NextResponse.json(
+          {
+            error: "Semantic search is included with Pro.",
+            code: "FEATURE_NOT_INCLUDED",
+            requiredPlan: "pro",
+          },
+          { status: 403 },
+        );
+      }
+    }
+
+    const adminClient = embeddingProvider ? createAdminClient() : null;
+    let result;
+    if (usesSemantic) {
+      if (!adminClient) {
+        throw new Error("Semantic search requires the Supabase service configuration.");
+      }
+      const requestId = request.headers.get("idempotency-key") ?? "";
+      const reservation = await reserveAICredits(
+        adminClient,
+        user.id,
+        "semantic_search",
+        requestId,
+      );
+      if (reservation.replayResult !== null) {
+        return NextResponse.json(reservation.replayResult);
+      }
+      try {
+        result = await searchUserBookmarks(
+          supabase,
+          adminClient,
+          user.id,
+          query,
+          mode,
+          filters,
+        );
+        await settleAICredits(adminClient, user.id, reservation.requestId, result);
+      } catch (error) {
+        try {
+          await releaseAICredits(adminClient, user.id, reservation.requestId);
+        } catch (releaseError) {
+          console.error("Semantic search credit reservation could not be released.", releaseError);
+        }
+        throw error;
+      }
+    } else {
+      result = await searchUserBookmarks(
+        supabase,
+        null,
+        user.id,
+        query,
+        mode,
+        filters,
+      );
+    }
 
     return NextResponse.json(result);
   } catch (error) {
@@ -75,6 +134,24 @@ export async function GET(request: Request) {
       return NextResponse.json(
         { error: error.message, code: "EMBEDDING_PROVIDER_UNAVAILABLE" },
         { status: 503 },
+      );
+    }
+    if (error instanceof InsufficientCreditsError) {
+      return NextResponse.json(
+        { error: error.message, code: "CREDITS_EXHAUSTED" },
+        { status: 402 },
+      );
+    }
+    if (error instanceof CreditOperationInProgressError) {
+      return NextResponse.json(
+        { error: error.message, code: "REQUEST_IN_PROGRESS" },
+        { status: 409 },
+      );
+    }
+    if (error instanceof Error && error.name === "InvalidIdempotencyKeyError") {
+      return NextResponse.json(
+        { error: error.message, code: "IDEMPOTENCY_KEY_REQUIRED" },
+        { status: 400 },
       );
     }
     console.error("Bookmark search failed.", error);

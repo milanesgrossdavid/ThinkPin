@@ -10,6 +10,15 @@ import type {
   ResearchSource,
 } from "../../types/research";
 import { createClient } from "../../lib/supabase/server";
+import { createAdminClient } from "../../lib/supabase/admin";
+import { checkEntitlement } from "../../lib/billing/entitlements";
+import {
+  CreditOperationInProgressError,
+  InsufficientCreditsError,
+  releaseAICredits,
+  reserveAICredits,
+  settleAICredits,
+} from "../../lib/billing/credits";
 
 type ActionResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
@@ -19,6 +28,21 @@ type ProjectBookmark = {
   url: string;
   domain: string;
 };
+
+function isProjectBookmark(value: unknown): value is ProjectBookmark {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "bookmarkId" in value &&
+    typeof value.bookmarkId === "string" &&
+    "title" in value &&
+    typeof value.title === "string" &&
+    "url" in value &&
+    typeof value.url === "string" &&
+    "domain" in value &&
+    typeof value.domain === "string"
+  );
+}
 
 async function getAuthenticatedClient() {
   const supabase = await createClient();
@@ -266,14 +290,23 @@ export async function removeResearchNoteAction(
 
 export async function generateResearchSummaryAction(
   projectId: string,
+  requestId: string,
 ): Promise<
   ActionResult<{
     summary: string;
     sources: ProjectBookmark[];
   }>
 > {
+  let reservedRequestId: string | null = null;
   try {
-    const { supabase } = await getAuthenticatedClient();
+    const { supabase, user } = await getAuthenticatedClient();
+    const access = await checkEntitlement(supabase, user.id, "research");
+    if (!access.allowed) {
+      return {
+        ok: false,
+        error: "Research mode is included with Pro. Upgrade your plan to use it.",
+      };
+    }
     const { data: project, error: projectError } = await supabase
       .from("research_projects")
       .select("id, title, description")
@@ -373,6 +406,34 @@ export async function generateResearchSummaryAction(
         return `[${sourceIndex + 1}] ${source.title}\nURL: ${source.url}\nExcerpts:\n${boundedExcerpts.join("\n")}`;
       })
       .join("\n\n");
+    const admin = createAdminClient();
+    const reservation = await reserveAICredits(
+      admin,
+      user.id,
+      "report_generation",
+      requestId,
+    );
+    if (reservation.replayResult !== null) {
+      if (
+        typeof reservation.replayResult === "object" &&
+        reservation.replayResult !== null &&
+        "summary" in reservation.replayResult &&
+        typeof reservation.replayResult.summary === "string" &&
+        "sources" in reservation.replayResult &&
+        Array.isArray(reservation.replayResult.sources) &&
+        reservation.replayResult.sources.every(isProjectBookmark)
+      ) {
+        return {
+          ok: true,
+          data: {
+            summary: reservation.replayResult.summary,
+            sources: reservation.replayResult.sources,
+          },
+        };
+      }
+      throw new Error("The previous research report could not be recovered.");
+    }
+    reservedRequestId = reservation.requestId;
     const result = await answerProvider.answerQuestion({
       question: `Write a concise, structured research report about "${project.title}". ${
         project.description ? `Research question: ${project.description}. ` : ""
@@ -384,21 +445,39 @@ export async function generateResearchSummaryAction(
       (citation, index: string) =>
         Number(index) <= citedSources.length ? citation : "",
     );
+    const report = {
+      summary,
+      sources: citedSources.map(({ source }) => source),
+    };
+    await settleAICredits(admin, user.id, reservation.requestId, report);
+    reservedRequestId = null;
     return {
       ok: true,
-      data: {
-        summary,
-        sources: citedSources.map(({ source }) => source),
-      },
+      data: report,
     };
   } catch (error) {
+    if (reservedRequestId) {
+      try {
+        const { user } = await getAuthenticatedClient();
+        await releaseAICredits(
+          createAdminClient(),
+          user.id,
+          reservedRequestId,
+        );
+      } catch (releaseError) {
+        console.error("Research credit reservation could not be released.", releaseError);
+      }
+    }
     console.error("Research report could not be generated.", error);
     return {
       ok: false,
-      error:
-        error instanceof Error
+      error: error instanceof InsufficientCreditsError
+        ? error.message
+        : error instanceof CreditOperationInProgressError
           ? error.message
-          : "Research report could not be generated.",
+          : error instanceof Error
+            ? error.message
+            : "Research report could not be generated.",
     };
   }
 }

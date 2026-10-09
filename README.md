@@ -674,9 +674,9 @@ historial por usuario/fecha, análisis por acción y búsquedas por request ID.
 RLS permite a cada usuario leer solo sus registros; `authenticated` no recibe
 permisos de escritura. Solo `service_role` puede insertar consumos, desde un
 servicio confiable del servidor. El workflow registra tokens usados para
-embeddings de contenido y las consultas semánticas. Todavía no se calcula el
-costo monetario ni se aplican límites de créditos. El tipo de dominio está en
-`src/types/ai-usage.ts`.
+embeddings de contenido y las consultas semánticas. Las reservas de créditos y
+su ledger se agregan en la migración de Billing descrita abajo. El tipo de
+dominio está en `src/types/ai-usage.ts`.
 
 #### Suscripciones y Stripe
 
@@ -688,21 +688,35 @@ suscripciones y RLS solo deja leer la propia. El RPC de sincronización es
 invocable únicamente con `service_role` y descarta eventos anteriores para
 evitar que un webhook fuera de orden sobrescriba el estado nuevo.
 
+Después de AI usage y subscriptions, aplica
+`supabase/migrations/20261009180000_add_billing_entitlements_and_credits.sql`.
+Crea el registro idempotente de eventos Stripe, cuentas de créditos,
+reservas y ledger; sus RPC transaccionales impiden exceder la cuota y permiten
+liquidar o liberar reservas.
+
 El endpoint `src/app/api/stripe/webhook/route.ts` verifica la firma sobre el
 cuerpo HTTP original y procesa `customer.subscription.created`, `.updated` y
-`.deleted`. Para asociar una suscripción nueva con una cuenta, configura
-`subscription_data.metadata.user_id` desde el futuro endpoint server-side de
-Checkout. Como alternativa, los eventos posteriores resuelven el usuario por
-un `stripe_customer_id` ya guardado. No aceptes un plan ni un estado enviados
-por el navegador.
+`.deleted`. La sincronización descarta eventos Stripe duplicados y eventos
+fuera de orden. Checkout es server-side: `subscription_data.metadata.user_id`
+asocia la suscripción con la cuenta y el navegador nunca elige un precio ni
+envía el estado efectivo del plan.
 
 Configura en el entorno server-side `STRIPE_SECRET_KEY`,
-`STRIPE_WEBHOOK_SECRET`, `SUPABASE_SECRET_KEY` y `STRIPE_PRO_PRICE_ID`; las
-variables `STRIPE_POWER_PRICE_ID` y `STRIPE_TEAM_PRICE_ID` son opcionales hasta
-que esos planes se ofrezcan. Usa los valores del entorno correspondiente y no
-expongas estas claves con prefijo `NEXT_PUBLIC_`. `.env.example` muestra los
-nombres sin credenciales. El Customer Portal, Checkout y la capa de
-entitlements aún no están implementados. El tipo de dominio está en
+`STRIPE_WEBHOOK_SECRET`, `SUPABASE_SECRET_KEY`, `STRIPE_PRO_PRICE_ID` y
+`APP_URL` (origen HTTPS de la aplicación; `http://localhost:3000` en local).
+Los Price IDs son valores configurados en Stripe, no importes definidos por
+ThinkPin. `STRIPE_POWER_PRICE_ID` y `STRIPE_TEAM_PRICE_ID` son opcionales hasta
+que esos planes se ofrezcan. No expongas claves con prefijo `NEXT_PUBLIC_`;
+`.env.example` muestra los nombres sin credenciales.
+
+`/app/billing` presenta el plan, uso y saldo; Checkout y el Customer Portal se
+abren desde endpoints autenticados. Las capacidades se comprueban también en
+las operaciones de Ask, búsqueda semántica, Research y Learning. Ask, búsqueda
+semántica, informes y Learning reservan créditos con claves de idempotencia y
+liberan la reserva cuando falla la operación. Las cuotas mensuales iniciales
+(Free 100, Pro 2.000, Power 10.000) y los costes por acción de
+`src/lib/billing/plans.ts` son provisionales; los precios monetarios proceden
+de los Price IDs del entorno Stripe. El tipo de dominio está en
 `src/types/subscription.ts`.
 
 #### Seguridad y exposición pública

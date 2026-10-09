@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { DashboardAccountButton } from "./dashboard-account-button";
+import { CreditBalance } from "../billing/credit-balance";
 
 export function DashboardHeader() {
   return (
@@ -19,7 +20,16 @@ export function DashboardHeader() {
               <p className="text-xs font-medium text-text-muted sm:text-sm">
                 Good morning, David
               </p>
-              <DashboardAccountButton />
+              <div className="flex items-center gap-2">
+                <CreditBalance />
+                <Link
+                  href="/app/billing"
+                  className="rounded-full px-3 py-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                >
+                  Plan &amp; billing
+                </Link>
+                <DashboardAccountButton />
+              </div>
             </div>
             <h1 className="mt-1.5 text-2xl font-semibold leading-tight tracking-[-0.045em] text-text sm:mt-2 sm:text-4xl">
               Your Internet Memory

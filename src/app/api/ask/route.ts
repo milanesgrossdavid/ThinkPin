@@ -5,6 +5,16 @@ import { AIProviderUnavailableError } from "../../../lib/ai/types";
 import { createAdminClient } from "../../../lib/supabase/admin";
 import { createClient } from "../../../lib/supabase/server";
 import {
+  checkEntitlement,
+} from "../../../lib/billing/entitlements";
+import {
+  CreditOperationInProgressError,
+  InsufficientCreditsError,
+  releaseAICredits,
+  reserveAICredits,
+  settleAICredits,
+} from "../../../lib/billing/credits";
+import {
   SupabaseAuthUnavailableError,
   throwIfSupabaseAuthUnavailable,
 } from "../../../lib/supabase/auth-errors";
@@ -51,13 +61,46 @@ export async function POST(request: Request) {
       );
     }
 
-    const response = await askUserLibrary(
-      supabase,
-      createAdminClient(),
+    const access = await checkEntitlement(supabase, user.id, "ai_assistant");
+    if (!access.allowed) {
+      return NextResponse.json(
+        {
+          error: "Ask Your Library is included with Pro.",
+          code: "FEATURE_NOT_INCLUDED",
+          requiredPlan: "pro",
+        },
+        { status: 403 },
+      );
+    }
+
+    const admin = createAdminClient();
+    const requestId = request.headers.get("idempotency-key") ?? "";
+    const reservation = await reserveAICredits(
+      admin,
       user.id,
-      input.question,
+      "ai_search",
+      requestId,
     );
-    return NextResponse.json(response);
+    if (reservation.replayResult !== null) {
+      return NextResponse.json(reservation.replayResult);
+    }
+    try {
+      const response = await askUserLibrary(
+        supabase,
+        admin,
+        user.id,
+        input.question,
+      );
+      await settleAICredits(admin, user.id, reservation.requestId, response);
+      return NextResponse.json(response);
+    } catch (error) {
+      try {
+        await releaseAICredits(admin, user.id, reservation.requestId);
+      } catch (releaseError) {
+        console.error("Ask Your Library credit reservation could not be released.", releaseError);
+      }
+      throw error;
+    }
   } catch (error) {
     if (error instanceof SupabaseAuthUnavailableError) {
       console.warn("Ask Your Library could not reach Supabase Auth.");
@@ -80,6 +123,27 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: error.message, code: "AI_PROVIDER_UNAVAILABLE" },
         { status: 503 },
+      );
+    }
+    if (error instanceof InsufficientCreditsError) {
+      return NextResponse.json(
+        { error: error.message, code: "CREDITS_EXHAUSTED" },
+        { status: 402 },
+      );
+    }
+    if (error instanceof CreditOperationInProgressError) {
+      return NextResponse.json(
+        { error: error.message, code: "REQUEST_IN_PROGRESS" },
+        { status: 409 },
+      );
+    }
+    if (
+      error instanceof Error &&
+      error.name === "InvalidIdempotencyKeyError"
+    ) {
+      return NextResponse.json(
+        { error: error.message, code: "IDEMPOTENCY_KEY_REQUIRED" },
+        { status: 400 },
       );
     }
     console.error("Ask Your Library request failed.", error);
