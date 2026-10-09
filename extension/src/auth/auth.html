@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Connect Google | ThinkPin</title>
+    <link rel="stylesheet" href="../popup/popup.css">
+    <link rel="stylesheet" href="./auth.css">
+  </head>
+  <body>
+    <main class="auth-page">
+      <a id="brand-link" class="brand" target="_blank" rel="noreferrer">
+        <span class="brand-mark" aria-hidden="true">◉</span>
+        <span class="brand-copy">
+          <span class="brand-name">ThinkPin</span>
+          <span class="brand-tagline">Your Internet, remembered.</span>
+        </span>
+      </a>
+
+      <section class="auth-card">
+        <div class="auth-icon" aria-hidden="true">G</div>
+        <p class="eyebrow">Secure account connection</p>
+        <h1 id="auth-title">Continue with Google</h1>
+        <p id="auth-copy" class="auth-copy">
+          Sign in with the Google account you use for ThinkPin. This
+          page will stay open while Google verifies your account.
+        </p>
+
+        <div id="auth-status" class="auth-status hidden" role="status" aria-live="polite"></div>
+
+        <button id="start-auth" class="button primary" type="button">
+          Continue to Google <span aria-hidden="true">→</span>
+        </button>
+
+        <div id="recovery" class="recovery hidden">
+          <strong>Chrome says another sign-in is still open.</strong>
+          <p>
+            Close any Google sign-in window or tab opened by this extension.
+            If you cannot find one, fully quit and reopen Chrome to clear the
+            stuck sign-in attempt, then try again.
+          </p>
+          <button id="retry-auth" class="button secondary" type="button">
+            Try again
+          </button>
+        </div>
+
+        <p class="auth-footnote">
+          Your password is entered only on Google. ThinkPin never sees
+          or stores it.
+        </p>
+      </section>
+    </main>
+    <script type="module" src="./auth.js"></script>
+  </body>
+</html>

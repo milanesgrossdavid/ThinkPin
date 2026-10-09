@@ -4,34 +4,14 @@ import {
   getUserBookmark,
   updateUserBookmark,
 } from "../../../../lib/bookmarks/service";
-import { createClient } from "../../../../lib/supabase/server";
+import { authenticateSupabaseRequest } from "../../../../lib/supabase/authenticate-request";
 import {
   SupabaseAuthUnavailableError,
-  throwIfSupabaseAuthUnavailable,
 } from "../../../../lib/supabase/auth-errors";
 
 type RouteContext = {
   params: Promise<{ bookmarkId: string }>;
 };
-
-async function authenticate() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  throwIfSupabaseAuthUnavailable(authError);
-
-  if (
-    authError &&
-    authError.status !== 401 &&
-    authError.name !== "AuthSessionMissingError"
-  ) {
-    throw authError;
-  }
-
-  return { supabase, user };
-}
 
 function serializeBookmark(bookmark: NonNullable<Awaited<ReturnType<typeof getUserBookmark>>>) {
   return {
@@ -62,10 +42,10 @@ async function readJson(request: Request): Promise<unknown> {
   }
 }
 
-export async function GET(_request: Request, { params }: RouteContext) {
+export async function GET(request: Request, { params }: RouteContext) {
   try {
     const { bookmarkId } = await params;
-    const { supabase, user } = await authenticate();
+    const { supabase, user } = await authenticateSupabaseRequest(request);
     if (!user) {
       return NextResponse.json(
         { error: "Authentication is required." },
@@ -98,7 +78,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
 export async function PATCH(request: Request, { params }: RouteContext) {
   try {
     const { bookmarkId } = await params;
-    const { supabase, user } = await authenticate();
+    const { supabase, user } = await authenticateSupabaseRequest(request);
     if (!user) {
       return NextResponse.json(
         { error: "Authentication is required." },
@@ -137,10 +117,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
   }
 }
 
-export async function DELETE(_request: Request, { params }: RouteContext) {
+export async function DELETE(request: Request, { params }: RouteContext) {
   try {
     const { bookmarkId } = await params;
-    const { supabase, user } = await authenticate();
+    const { supabase, user } = await authenticateSupabaseRequest(request);
     if (!user) {
       return NextResponse.json(
         { error: "Authentication is required." },

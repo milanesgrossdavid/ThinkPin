@@ -203,8 +203,10 @@ serializadas.
 
 #### Guardar bookmarks
 
-`POST /api/bookmarks` requiere una sesión de Supabase y acepta únicamente
-`{ "url": "https://example.com/article" }`. El servidor valida HTTP/HTTPS,
+`POST /api/bookmarks` acepta una sesión web de Supabase mediante cookies o un
+access token de Supabase en `Authorization: Bearer <access-token>` para clientes
+externos. Si se envía un header `Authorization` inválido, no se utiliza como
+alternativa una sesión cookie. El servidor valida HTTP/HTTPS,
 normaliza la URL para deduplicar, elimina fragmentos y parámetros de tracking
 conocidos sin descartar otros parámetros, y deriva `domain` de la URL.
 `user_id` siempre sale de `auth.getUser()`, nunca del body. El endpoint conserva
@@ -235,13 +237,39 @@ cascada; no es un borrado reversible.
 
 `GET /api/bookmarks` sincroniza el cache de interfaz con bookmarks, tags,
 colección y nota guardados. `POST /api/bookmarks` continúa disponible para
-clientes externos y comparte el mismo service de creación que Smart Save.
+clientes externos y comparte el mismo service de creación que Smart Save; su
+contrato de creación recibe `{ "url": "https://example.com/article" }`. Un
+cliente externo obtiene el bearer token mediante un flujo de autenticación
+explícito de Supabase; nunca debe incluir una clave `service_role` ni guardar
+el token en almacenamiento accesible a páginas web o scripts de contenido.
 `PATCH /api/bookmarks/:bookmarkId` actualiza los mismos campos mediante el
 service de actualización; `DELETE /api/bookmarks/:bookmarkId` elimina el
 registro autenticado. Las cuatro operaciones externas aplican identidad del
-servidor y aislamiento RLS.
+servidor y aislamiento RLS, tanto con cookies como con bearer token.
 El CRUD de colecciones como recurso independiente todavía no está conectado;
 la asociación de un bookmark con una colección sí se persiste.
+
+#### Extensión Chrome
+
+La extensión Manifest V3 está en `extension/`. Carga ese directorio desde
+`chrome://extensions` con el modo desarrollador. En el primer uso se conecta a
+la URL desplegada de la aplicación, autoriza explícitamente los hosts de la app
+y Supabase, e inicia sesión en Supabase Auth con la cuenta existente mediante
+Google OAuth PKCE o email/contraseña. Para Google, registra la URL de
+`chrome.identity.getRedirectURL()` en Supabase Auth → URL Configuration y
+configura Google OAuth en el proyecto. La extensión pide la contraseña solo al
+iniciar sesión; conserva access/refresh tokens en `chrome.storage.local`,
+renueva el access token al necesitarlo y borra/revoca la sesión al cerrar
+sesión. No tiene content scripts, no accede
+directamente a tablas y no incluye secretos de servidor.
+
+El popup permite revisar la pestaña, guardar y añadir colección, tags y motivo.
+También hay un menú contextual y el atajo `Alt+Shift+S` para guardado rápido.
+La extensión usa `GET /api/extension/config` para obtener la URL de Supabase y
+la publishable key (pública), y crea/muta datos mediante `/api/bookmarks` con
+bearer token. Dedupe, validación, procesamiento de metadata y cola Inngest
+siguen siendo responsabilidad del backend. Pasos de instalación y limitaciones
+de autenticación están en `extension/README.md`.
 
 #### Ingestión asíncrona con Inngest
 

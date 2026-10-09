@@ -8,34 +8,14 @@ import { inngest } from "../../../lib/inngest/client";
 import { bookmarkCreated } from "../../../lib/inngest/events";
 import { getAIProvider } from "../../../lib/ai/router";
 import { createAdminClient } from "../../../lib/supabase/admin";
-import { createClient } from "../../../lib/supabase/server";
+import { authenticateSupabaseRequest } from "../../../lib/supabase/authenticate-request";
 import {
   SupabaseAuthUnavailableError,
-  throwIfSupabaseAuthUnavailable,
 } from "../../../lib/supabase/auth-errors";
 
-async function getAuthenticatedUser() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-  throwIfSupabaseAuthUnavailable(authError);
-
-  if (
-    authError &&
-    authError.status !== 401 &&
-    authError.name !== "AuthSessionMissingError"
-  ) {
-    throw authError;
-  }
-
-  return { supabase, user };
-}
-
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const { supabase, user } = await getAuthenticatedUser();
+    const { supabase, user } = await authenticateSupabaseRequest(request);
     if (!user) {
       return NextResponse.json(
         { error: "Authentication is required." },
@@ -85,7 +65,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { supabase, user } = await getAuthenticatedUser();
+    const { supabase, user } = await authenticateSupabaseRequest(request);
     if (!user) {
       return NextResponse.json(
         { error: "Authentication is required." },

@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en" class="popup-document">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ThinkPin Extension</title>
+    <link rel="stylesheet" href="./popup.css">
+  </head>
+  <body>
+    <main class="popup">
+      <header class="header">
+        <a id="brand-link" class="brand" target="_blank" rel="noreferrer">
+          <span class="brand-mark" aria-hidden="true">◉</span>
+          <span class="brand-copy">
+            <span class="brand-name">ThinkPin</span>
+            <span class="brand-tagline">Your Internet, remembered.</span>
+          </span>
+        </a>
+        <span id="connection-badge" class="connection-badge">
+          <span class="connection-dot"></span>
+          <span id="connection-label">Not connected</span>
+        </span>
+      </header>
+
+      <nav class="steps" aria-label="Setup progress">
+        <ol>
+          <li id="step-connect" class="step">
+            <span class="step-number">1</span>
+            <span class="step-label">Connect</span>
+          </li>
+          <li id="step-authorize" class="step">
+            <span class="step-number">2</span>
+            <span class="step-label">Allow</span>
+          </li>
+          <li id="step-sign-in" class="step">
+            <span class="step-number">3</span>
+            <span class="step-label">Sign in</span>
+          </li>
+          <li id="step-save" class="step">
+            <span class="step-number">4</span>
+            <span class="step-label">Save</span>
+          </li>
+        </ol>
+      </nav>
+
+      <section class="welcome">
+        <p id="eyebrow" class="eyebrow">A little setup, then one-click saving</p>
+        <h1 id="welcome-title">Connect your library</h1>
+        <p id="welcome-copy" class="welcome-copy">
+          Link this extension to your ThinkPin account. Your bookmarks
+          stay in one library, wherever you save them.
+        </p>
+      </section>
+
+      <section id="setup" class="panel hidden" aria-labelledby="setup-title">
+        <div class="instruction-card">
+          <span class="instruction-icon" aria-hidden="true">↗</span>
+          <p><strong>Where is your library?</strong> Enter the website address you use to open ThinkPin.</p>
+        </div>
+        <form id="setup-form">
+          <label for="app-url">ThinkPin website</label>
+          <input id="app-url" name="appUrl" type="url" placeholder="https://your-app.example" required>
+          <p class="field-help">For local testing, use <code>http://localhost:3000</code>.</p>
+          <button class="button primary" type="submit">
+            Connect my library <span aria-hidden="true">→</span>
+          </button>
+        </form>
+      </section>
+
+      <section id="auth" class="panel hidden" aria-labelledby="auth-title">
+        <div id="permission-card" class="instruction-card hidden">
+          <span class="instruction-icon" aria-hidden="true">🔒</span>
+          <div>
+            <strong>Why do I need to allow this?</strong>
+            <p>The extension connects securely to your library and Supabase sign-in. It can only access those services—not your other websites.</p>
+          </div>
+        </div>
+        <button id="authorize-supabase" class="button primary hidden" type="button">
+          Allow secure connection <span aria-hidden="true">→</span>
+        </button>
+        <div id="auth-methods" class="hidden">
+          <button id="google-sign-in" class="button google" type="button">
+            <svg aria-hidden="true" viewBox="0 0 20 20" width="18" height="18">
+              <path fill="#4285F4" d="M19.6 10.23c0-.68-.06-1.36-.18-2H10v3.79h5.38a4.6 4.6 0 0 1-2 3.02v2.47h3.24c1.9-1.75 2.98-4.33 2.98-7.28Z"/>
+              <path fill="#34A853" d="M10 20c2.7 0 4.96-.9 6.62-2.49l-3.24-2.47c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.59-4.13H1.06v2.55A10 10 0 0 0 10 20Z"/>
+              <path fill="#FBBC05" d="M4.41 11.87a6 6 0 0 1 0-3.74V5.58H1.06a10 10 0 0 0 0 8.84l3.35-2.55Z"/>
+              <path fill="#EA4335" d="M10 3.97c1.47 0 2.8.5 3.84 1.52l2.88-2.88A9.64 9.64 0 0 0 10 0a10 10 0 0 0-8.94 5.58l3.35 2.55C5.2 5.73 7.4 3.97 10 3.97Z"/>
+            </svg>
+            <span>Continue with Google</span>
+          </button>
+          <p id="oauth-redirect-help" class="redirect-help hidden">
+            Google needs this one-time redirect address in Supabase:
+            <code id="oauth-redirect-url"></code>
+            <button id="copy-redirect" class="copy-button" type="button">Copy</button>
+          </p>
+          <details class="email-sign-in">
+            <summary>Prefer email and password?</summary>
+            <form id="auth-form">
+              <label for="email">Email address</label>
+              <input id="email" name="email" type="email" autocomplete="username" placeholder="you@example.com" required>
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Your account password" required>
+              <button class="button primary" type="submit">Sign in with email</button>
+            </form>
+          </details>
+        </div>
+        <p class="account-help">
+          Sign-in methods not working?
+          <a id="web-login" target="_blank" rel="noreferrer">Open your account in ThinkPin</a>
+        </p>
+      </section>
+
+      <section id="save-panel" class="hidden" aria-labelledby="page-title">
+        <div class="account-row">
+          <span class="signed-in-label"><span class="signed-in-dot"></span> Connected as <strong id="account-email"></strong></span>
+          <button id="sign-out" class="text-button" type="button">Sign out</button>
+        </div>
+
+        <div id="saved-confirmation" class="saved-confirmation hidden" role="status">
+          <span class="saved-check" aria-hidden="true">✓</span>
+          <div>
+            <strong id="saved-title">Saved to your library</strong>
+            <p id="saved-message">Your page is ready to be processed.</p>
+          </div>
+        </div>
+
+        <div class="page-preview">
+          <div class="preview-topline">
+            <span class="preview-label">CURRENT TAB</span>
+            <span class="preview-dot"></span>
+          </div>
+          <p id="page-domain" class="domain"></p>
+          <h2 id="page-title"></h2>
+          <p id="page-url" class="url"></p>
+        </div>
+
+        <form id="save-form">
+          <details id="organize-options" class="organize-options">
+            <summary>
+              <span><strong>Organize this save</strong><span class="optional">Optional · do it now or later</span></span>
+              <span class="summary-chevron" aria-hidden="true">⌄</span>
+            </summary>
+            <div class="organize-fields">
+              <label for="collection">Collection</label>
+              <input id="collection" name="collection" maxlength="100" placeholder="e.g. Read later">
+              <p class="field-help">Type a collection name. You can create or change it later in your library.</p>
+              <label for="tags">Tags</label>
+              <input id="tags" name="tags" placeholder="design, research">
+              <p class="field-help">Separate tags with commas.</p>
+              <label for="saved-reason">Why are you saving this?</label>
+              <textarea id="saved-reason" name="savedReason" rows="2" maxlength="1000" placeholder="A note to help you remember"></textarea>
+            </div>
+          </details>
+          <button id="save-button" class="button primary save-button" type="submit">
+            <span id="save-button-label">Save to my library</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </form>
+
+        <aside class="quick-tips">
+          <p class="tips-title">Save it your way</p>
+          <div class="tip"><span class="tip-key" aria-hidden="true">Click</span><span><strong>Toolbar:</strong> review before saving</span></div>
+          <div class="tip"><span class="tip-key" aria-hidden="true">Right-click</span><span><strong>Context menu:</strong> quick-save a page or link</span></div>
+          <div class="tip"><span class="tip-key" aria-hidden="true">Alt ⇧ S</span><span><strong>Shortcut:</strong> save the current page</span></div>
+        </aside>
+      </section>
+
+      <p id="status" class="status hidden" role="status" aria-live="polite"></p>
+
+      <footer>
+        <a id="library-link" target="_blank" rel="noreferrer">
+          Open my library <span aria-hidden="true">↗</span>
+        </a>
+        <button id="settings-toggle" class="text-button" type="button">Settings</button>
+      </footer>
+      <section id="settings" class="settings hidden">
+        <form id="settings-form">
+          <label for="settings-app-url">ThinkPin website</label>
+          <input id="settings-app-url" name="appUrl" type="url" required>
+          <button class="button secondary" type="submit">Update connection</button>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="./popup.js"></script>
+  </body>
+</html>
