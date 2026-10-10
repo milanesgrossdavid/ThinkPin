@@ -1,3 +1,5 @@
+import { extractDomain } from "../ingestion/normalize-url";
+
 const MAX_URL_LENGTH = 2048;
 
 export type ValidatedBookmarkUrl = {
@@ -41,6 +43,6 @@ export function validateBookmarkUrl(input: unknown): ValidatedBookmarkUrl {
   return {
     originalUrl,
     normalizedUrl: parsedUrl.toString(),
-    domain: parsedUrl.hostname,
+    domain: extractDomain(parsedUrl),
   };
 }

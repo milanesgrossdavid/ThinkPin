@@ -8,6 +8,10 @@ const trackingParameters = new Set([
   "utm_term",
 ]);
 
+export function extractDomain(input: string | URL): string {
+  return new URL(input).hostname;
+}
+
 export function normalizeUrl(input: string | URL): string {
   const normalized = new URL(input);
 

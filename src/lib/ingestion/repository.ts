@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatVector } from "../ai/vector";
 import type { AIEmbeddingResult } from "../ai/types";
+import { calculateReadingTimeMinutes } from "./reading-time";
 
 export async function saveContentDocument(
   supabase: SupabaseClient,
@@ -11,7 +12,7 @@ export async function saveContentDocument(
     chunks: string[];
   },
 ) {
-  const words = input.content.match(/\S+/g)?.length ?? 0;
+  const wordCount = input.content.match(/\S+/g)?.length ?? 0;
   const { data: document, error: documentError } = await supabase
     .from("content_documents")
     .upsert(
@@ -19,8 +20,8 @@ export async function saveContentDocument(
         bookmark_id: input.bookmarkId,
         content: input.content,
         content_hash: input.contentHash,
-        word_count: words,
-        reading_time_minutes: Math.ceil(words / 200),
+        word_count: wordCount,
+        reading_time_minutes: calculateReadingTimeMinutes(wordCount),
       },
       { onConflict: "bookmark_id" },
     )

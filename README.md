@@ -19,6 +19,27 @@ pnpm dev
 
 Abre [http://localhost:3000](http://localhost:3000).
 
+## Testing
+
+```bash
+pnpm test                 # suite unitaria y de integración con dependencias simuladas
+pnpm test:unit            # lógica pura, créditos y permisos
+pnpm test:integration     # servicios de bookmarks, colecciones, búsqueda, IA y Stripe
+pnpm test:watch           # ejecución interactiva durante el desarrollo
+```
+
+Las pruebas de integración no contactan Supabase, Ollama ni Stripe reales. La
+suite cubre normalización/dominio de URL, lectura, créditos y permisos;
+deduplicación y guardado de bookmarks, asignación de tags, persistencia de
+colecciones, búsqueda, normalización del enriquecimiento de IA y verificación/
+sincronización del webhook de Stripe.
+
+Los flujos E2E de signup, login, bookmark, búsqueda, colección, favorito,
+eliminación, importación y upgrade todavía requieren un entorno de navegador
+con un tenant de prueba aislado y autenticación/pagos de prueba. No se ejecutan
+contra cuentas locales o datos compartidos ni se consideran cubiertos por los
+mocks de integración.
+
 ### Supabase
 
 Configura `NEXT_PUBLIC_SUPABASE_URL` y
