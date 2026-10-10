@@ -134,7 +134,7 @@ export function LearningPathWorkspace({
             <BookOpenCheck aria-hidden="true" className="size-4" />
             Learning path
           </p>
-          <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
+          <h1 data-page-title className="mt-2 text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
             {path.title}
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-text-muted">

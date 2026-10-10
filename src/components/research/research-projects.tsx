@@ -49,16 +49,17 @@ export function ResearchProjects({
               <FlaskConical aria-hidden="true" className="size-4" />
               Research Mode
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
+            <h1 data-page-title className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
               Investigate what you save.
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
-              Bring library sources together, capture your thinking, and turn
-              your research into a cited report.
+            <p data-page-summary className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
+              For multi-source questions: bring saved links together, capture
+              your notes, and build a report with citations.
             </p>
           </div>
           <button
             type="button"
+            data-primary-action
             onClick={() => setShowForm((visible) => !visible)}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
@@ -113,6 +114,7 @@ export function ResearchProjects({
               </button>
               <button
                 type="submit"
+                data-primary-action
                 disabled={isPending}
                 className="min-h-10 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
               >

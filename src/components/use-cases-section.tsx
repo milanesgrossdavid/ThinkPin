@@ -9,35 +9,35 @@ const useCases = [
     label: "Developers",
     intro: "Keep the references that help you ship.",
     save: ["GitHub repositories", "Documentation", "Tutorials", "Tools"],
-    next: ["Search", "Connect", "Research", "Build"],
+    next: ["Save links", "Add tags", "Search"],
   },
   {
     id: "researchers",
     label: "Researchers",
     intro: "Bring your sources, notes, and ideas together.",
     save: ["Papers", "Studies", "Interviews", "Datasets"],
-    next: ["Review", "Connect", "Synthesize", "Discover"],
+    next: ["Save sources", "Create collections", "Search"],
   },
   {
     id: "creators",
     label: "Creators",
     intro: "Keep inspiration close to the work you make.",
     save: ["Visual references", "Articles", "Videos", "Creative tools"],
-    next: ["Collect", "Explore", "Connect", "Create"],
+    next: ["Save links", "Organize", "Find them again"],
   },
   {
     id: "students",
     label: "Students",
     intro: "Turn everything you learn online into a resource you can find again.",
     save: ["Course materials", "Explainers", "Research", "Study guides"],
-    next: ["Save", "Understand", "Review", "Remember"],
+    next: ["Save links", "Add collections", "Search"],
   },
   {
     id: "curious-minds",
     label: "Curious minds",
     intro: "Follow your curiosity without losing what you find.",
     save: ["Articles", "Ideas", "Places", "Things to try"],
-    next: ["Wander", "Collect", "Connect", "Rediscover"],
+    next: ["Save links", "Mark favorites", "Search"],
   },
 ];
 
@@ -74,6 +74,7 @@ export function UseCasesSection() {
   return (
     <section
       aria-labelledby="use-cases-title"
+      data-scroll-reveal
       className="bg-surface px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
@@ -166,7 +167,7 @@ export function UseCasesSection() {
 
                 <div>
                   <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-text-muted">
-                    Then
+                    In ThinkPin
                   </h4>
                   <ol className="mt-3 flex flex-wrap gap-2">
                     {selected.next.map((step, index) => (

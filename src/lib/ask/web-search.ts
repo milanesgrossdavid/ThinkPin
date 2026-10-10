@@ -1,3 +1,5 @@
+import { getTavilyCostPerCreditUsd } from "../ai/usage";
+
 export type GlobalSearchResult = {
   title: string;
   url: string;
@@ -37,7 +39,12 @@ function parseResult(value: unknown): GlobalSearchResult | null {
 
 export async function searchGlobalWeb(
   queryInput: unknown,
-): Promise<{ query: string; results: GlobalSearchResult[] }> {
+): Promise<{
+  query: string;
+  results: GlobalSearchResult[];
+  providerCredits: number;
+  estimatedCostUsd: number | null;
+}> {
   if (typeof queryInput !== "string") {
     throw new InvalidGlobalSearchQueryError("Enter a web search query.");
   }
@@ -55,6 +62,7 @@ export async function searchGlobalWeb(
     );
   }
 
+  const estimatedCostUsd = getTavilyCostPerCreditUsd();
   let response: Response;
   try {
     response = await fetch("https://api.tavily.com/search", {
@@ -67,6 +75,7 @@ export async function searchGlobalWeb(
         max_results: 8,
         include_answer: false,
         include_raw_content: false,
+        include_usage: true,
       }),
       signal: AbortSignal.timeout(15_000),
       cache: "no-store",
@@ -104,10 +113,31 @@ export async function searchGlobalWeb(
     );
   }
 
+  const usage = isRecord(payload.usage) ? payload.usage : null;
+  const reportedCredits = usage?.credits;
+  const providerCredits =
+    typeof reportedCredits === "number" &&
+    Number.isSafeInteger(reportedCredits) &&
+    reportedCredits >= 0
+      ? reportedCredits
+      : 1;
+  if (reportedCredits === undefined) {
+    console.warn(
+      "Tavily did not return usage credits; recording the documented one-credit Basic Search cost.",
+    );
+  } else if (providerCredits !== reportedCredits) {
+    console.error("Tavily returned an invalid usage credit count.");
+  }
+
   return {
     query,
     results: payload.results
       .map(parseResult)
       .filter((result): result is GlobalSearchResult => result !== null),
+    providerCredits,
+    estimatedCostUsd:
+      estimatedCostUsd === null
+        ? null
+        : Number((estimatedCostUsd * providerCredits).toFixed(6)),
   };
 }

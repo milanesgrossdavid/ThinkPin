@@ -300,10 +300,10 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
           <p className="text-xs font-semibold uppercase tracking-[0.15em] text-primary">
             Smart Save
           </p>
-          <h1 className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.05em] text-text sm:text-5xl">
+          <h1 data-page-title className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.05em] text-text sm:text-5xl">
             Save something
           </h1>
-          <p className="mt-3 text-sm leading-6 text-text-muted sm:mt-4 sm:text-base sm:leading-7">
+          <p data-page-summary className="mt-3 text-sm leading-6 text-text-muted sm:mt-4 sm:text-base sm:leading-7">
             Paste a link. We&apos;ll save it and fetch its page metadata.
           </p>
         </header>
@@ -335,6 +335,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
               </label>
               <ActionButton
                 type="submit"
+                data-primary-action
                 status={isPending ? "loading" : isError ? "error" : "idle"}
                 className="mt-3 w-full sm:mt-4 sm:w-auto sm:px-6"
               >

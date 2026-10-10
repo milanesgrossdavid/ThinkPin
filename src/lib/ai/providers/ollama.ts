@@ -4,10 +4,13 @@ import {
   type AIEmbeddingResult,
   type AIProvider,
 } from "../types";
-import { getOllamaBaseUrl } from "./ollama-url";
+import {
+  estimateOllamaCostUsd,
+  getOllamaRequestConfig,
+} from "./ollama-url";
 
 const PROVIDER_ID = "ollama";
-const MODEL = "nomic-embed-text";
+const DEFAULT_MODEL = "nomic-embed-text";
 const MODEL_DIMENSIONS = 768;
 const DATABASE_DIMENSIONS = 1536;
 
@@ -21,27 +24,30 @@ function asRecord(value: unknown): Record<string, unknown> {
 export const ollamaProvider: AIProvider = {
   id: PROVIDER_ID,
   async generateEmbedding({ input }: AIEmbeddingInput): Promise<AIEmbeddingResult> {
+    const model = process.env.OLLAMA_EMBEDDING_MODEL?.trim() || DEFAULT_MODEL;
     if (input.length === 0) {
       return {
         provider: PROVIDER_ID,
-        model: MODEL,
+        model,
         dimensions: DATABASE_DIMENSIONS,
         embeddings: [],
         inputTokens: 0,
+        estimatedCostUsd: 0,
       };
     }
 
+    const ollama = getOllamaRequestConfig();
     let response: Response;
     try {
-      response = await fetch(`${getOllamaBaseUrl()}/api/embed`, {
+      response = await fetch(`${ollama.baseUrl}/api/embed`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ model: MODEL, input, truncate: true }),
+        headers: ollama.headers,
+        body: JSON.stringify({ model, input, truncate: true }),
         signal: AbortSignal.timeout(60_000),
       });
     } catch {
       throw new AIProviderUnavailableError(
-        "Local Ollama is unavailable. Start Ollama and make sure nomic-embed-text is installed.",
+        "Ollama is unavailable. Check the configured local server or Cloud credentials and confirm the embedding model is available.",
       );
     }
 
@@ -51,7 +57,7 @@ export const ollamaProvider: AIProvider = {
       const details =
         typeof error.error === "string" ? ` ${error.error}` : "";
       throw new AIProviderUnavailableError(
-        `Local Ollama could not create embeddings.${details}`,
+        `Ollama could not create embeddings.${details}`,
       );
     }
 
@@ -65,7 +71,8 @@ export const ollamaProvider: AIProvider = {
     const embeddings = result.embeddings.map((value) => {
       if (
         !Array.isArray(value) ||
-        value.length !== MODEL_DIMENSIONS ||
+        (value.length !== MODEL_DIMENSIONS &&
+          value.length !== DATABASE_DIMENSIONS) ||
         !value.every(
           (component) =>
             typeof component === "number" && Number.isFinite(component),
@@ -75,7 +82,9 @@ export const ollamaProvider: AIProvider = {
           "Ollama returned an embedding with an unexpected dimension.",
         );
       }
-      return [...value, ...Array(DATABASE_DIMENSIONS - MODEL_DIMENSIONS).fill(0)];
+      return value.length === DATABASE_DIMENSIONS
+        ? value
+        : [...value, ...Array(DATABASE_DIMENSIONS - MODEL_DIMENSIONS).fill(0)];
     });
     const inputTokens =
       typeof result.prompt_eval_count === "number" &&
@@ -85,10 +94,11 @@ export const ollamaProvider: AIProvider = {
 
     return {
       provider: PROVIDER_ID,
-      model: MODEL,
+      model,
       dimensions: DATABASE_DIMENSIONS,
       embeddings,
       inputTokens,
+      estimatedCostUsd: estimateOllamaCostUsd(ollama, inputTokens, 0),
     };
   },
 };

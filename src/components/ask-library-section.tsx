@@ -2,35 +2,32 @@ import {
   ArrowDown,
   ArrowUpRight,
   BookOpen,
-  Database,
   Link2,
   Sparkles,
-  Triangle,
 } from "lucide-react";
 
 const sources = [
-  { name: "OpenAI documentation", domain: "platform.openai.com", icon: Sparkles },
-  { name: "LangChain", domain: "langchain.com", icon: Link2 },
-  { name: "Supabase", domain: "supabase.com", icon: Database },
-  { name: "Vercel", domain: "vercel.com", icon: Triangle },
+  { name: "A saved article", domain: "example.com", icon: Link2 },
+  { name: "A saved guide", domain: "example.org", icon: Link2 },
 ];
 
 export function AskLibrarySection() {
   return (
     <section
       aria-labelledby="ask-library-title"
+      data-scroll-reveal
       className="bg-surface px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
-            Answers from your saved resources
+            Ask Your Library · Pro
           </p>
           <h2
             id="ask-library-title"
             className="mt-4 font-heading text-4xl leading-[1.02] tracking-tight text-text sm:text-5xl md:text-6xl"
           >
-            Ask your Internet memory.
+            Ask questions about links you saved.
           </h2>
         </div>
 
@@ -46,7 +43,7 @@ export function AskLibrarySection() {
             </div>
             <div className="mt-4 rounded-2xl border border-border/50 bg-background/70 px-4 py-4 sm:px-5 sm:py-5">
               <p className="text-sm leading-6 text-text sm:text-base sm:leading-7">
-                What tools did I save for building AI applications?
+                What did I save about getting started?
               </p>
             </div>
           </div>
@@ -62,22 +59,21 @@ export function AskLibrarySection() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-primary">
                   <Sparkles aria-hidden="true" className="size-4" />
-                  Based on your saved resources
-                </span>
-                <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
-                  14 related resources
+                  Example answer
                 </span>
               </div>
               <p className="mt-4 text-base font-medium leading-relaxed text-text sm:text-lg">
-                I found 14 resources related to AI application development.
+                Here&apos;s a short summary of the relevant information in your
+                saved links.
               </p>
               <p className="mt-2 text-sm text-text-muted">
-                Here are a few from your library:
+                Answers include sources from your library so you can check the
+                original pages.
               </p>
 
               <div className="mt-6 border-t border-border/80 pt-4">
                 <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-text-muted">
-                  Sources
+                  Example sources
                 </h3>
                 <ul className="mt-3 grid gap-2 sm:grid-cols-2">
                   {sources.map((source) => {
@@ -108,6 +104,10 @@ export function AskLibrarySection() {
                 </ul>
               </div>
             </div>
+            <p className="mx-auto mt-4 max-w-2xl text-center text-xs leading-5 text-text-muted">
+              Ask Your Library requires a Pro plan and an available AI provider. The
+              example above is illustrative; your answer depends on your saved links.
+            </p>
           </div>
         </div>
       </div>

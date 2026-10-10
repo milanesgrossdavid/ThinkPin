@@ -2,26 +2,20 @@ const steps = [
   {
     number: "01",
     label: "Save",
-    description: "Save anything from the web.",
-    topics: ["Articles", "Videos", "Tools", "Products", "Research", "Ideas"],
+    description: "Paste a link and keep it in your library.",
+    topics: ["Articles", "Videos", "Tools", "Products", "More"],
   },
   {
     number: "02",
-    label: "Understand",
-    description: "Your library understands what you saved.",
-    topics: ["Topics", "Content", "Intent", "Context"],
+    label: "Organize",
+    description: "Add tags and collections, or enable AI organization.",
+    topics: ["Tags", "Collections", "Favorites", "Notes"],
   },
   {
     number: "03",
-    label: "Connect",
-    description: "Related things are connected automatically.",
-    topics: ["Topics", "Bookmarks", "Collections", "Ideas"],
-  },
-  {
-    number: "04",
-    label: "Remember",
-    description: "Find what matters when you need it.",
-    topics: ["Search", "AI", "Research", "Rediscovery"],
+    label: "Find it again",
+    description: "Search your library or ask questions about saved links.",
+    topics: ["Keyword search", "Semantic search*", "Ask Your Library*"],
   },
 ];
 
@@ -30,6 +24,7 @@ export function HowItWorksSection() {
     <section
       id="how-it-works"
       aria-labelledby="how-it-works-title"
+      data-scroll-reveal
       className="bg-surface-elevated px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">
@@ -41,15 +36,16 @@ export function HowItWorksSection() {
             id="how-it-works-title"
             className="mt-4 font-heading text-4xl leading-[1.02] tracking-tight text-text sm:text-5xl md:text-6xl"
           >
-            From saving links
-            <br className="hidden sm:block" /> to remembering knowledge.
+            Save now.
+            <br className="hidden sm:block" /> Find it when it matters.
           </h2>
           <p className="mx-auto mt-5 max-w-lg text-base leading-7 text-text-muted sm:text-lg sm:leading-8">
-            Every link you save becomes part of your personal Internet memory.
+            Keep useful links together, then return to them by search, tags, or
+            collections. AI features are available when enabled for your plan.
           </p>
         </div>
 
-        <ol className="mt-12 grid gap-px overflow-hidden rounded-[24px] border border-border/50 bg-border/50 sm:mt-16 sm:grid-cols-2 lg:grid-cols-4">
+        <ol className="mt-12 grid gap-px overflow-hidden rounded-[24px] border border-border/50 bg-border/50 sm:mt-16 sm:grid-cols-3">
           {steps.map((step) => (
             <li
               key={step.number}
@@ -86,6 +82,10 @@ export function HowItWorksSection() {
             </li>
           ))}
         </ol>
+        <p className="mt-4 text-center text-xs text-text-muted">
+          *AI organization, semantic search, and Ask Your Library depend on
+          plan access and provider configuration.
+        </p>
       </div>
     </section>
   );

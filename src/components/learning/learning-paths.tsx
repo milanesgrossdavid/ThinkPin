@@ -92,16 +92,17 @@ export function LearningPaths({
               <BookOpenCheck aria-hidden="true" className="size-4" />
               Learning Mode
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
+            <h1 data-page-title className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
               Learn from what you saved.
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
-              Build an ordered path from saved bookmarks or a public web page.
-              Your progress changes only when you mark a resource as studied.
+            <p data-page-summary className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
+              For a topic you want to understand: turn saved links or a public
+              page into an ordered study path, then track what you&apos;ve learned.
             </p>
           </div>
           <button
             type="button"
+            data-primary-action
             onClick={() => setShowForm((visible) => !visible)}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
@@ -209,6 +210,7 @@ export function LearningPaths({
               </button>
               <button
                 type="submit"
+                data-primary-action
                 disabled={
                   isPending ||
                   (sourceMode === "bookmarks"

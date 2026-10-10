@@ -20,6 +20,7 @@ import {
   settleAICredits,
 } from "../../billing/credits";
 import type { AIEmbeddingResult, BookmarkEnrichment } from "../../ai/types";
+import { recordProviderUsage } from "../../ai/usage";
 import {
   getBookmarkForIngestion,
   saveBookmarkAIEnrichment,
@@ -260,6 +261,28 @@ export const bookmarkIngestion = inngest.createFunction(
                   collections: bookmark.collections,
                 }),
             );
+          }
+          const enrichmentUsage = generatedEnrichment.usage;
+          if (reservation.replayResult === null && enrichmentUsage) {
+            try {
+              await step.run("record-bookmark-enrichment-usage", () =>
+                recordProviderUsage(admin, {
+                  userId: bookmark.userId,
+                  provider: enrichmentUsage.provider,
+                  model: enrichmentUsage.model,
+                  actionType: "bookmark_tagging",
+                  inputTokens: enrichmentUsage.inputTokens,
+                  outputTokens: enrichmentUsage.outputTokens,
+                  estimatedCostUsd: enrichmentUsage.estimatedCostUsd,
+                  requestId: reservation.requestId,
+                }),
+              );
+            } catch (usageError) {
+              console.error(
+                "Bookmark enrichment provider usage could not be recorded.",
+                { bookmarkId: bookmark.id, usageError },
+              );
+            }
           }
           const enrichment = {
             ...generatedEnrichment,

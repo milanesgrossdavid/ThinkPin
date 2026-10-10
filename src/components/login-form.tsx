@@ -139,6 +139,7 @@ export function LoginForm({
 
         <ActionButton
           type="submit"
+          data-primary-action
           status={
             isSubmitting
               ? "loading"

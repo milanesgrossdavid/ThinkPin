@@ -334,7 +334,7 @@ export function BookmarkDetailView({
               )}
             </div>
 
-            <h1 className="mt-3 wrap-break-word text-2xl font-semibold leading-tight tracking-[-0.04em] text-text sm:text-4xl">
+            <h1 data-page-title className="mt-3 wrap-break-word text-2xl font-semibold leading-tight tracking-[-0.04em] text-text sm:text-4xl">
               {activeTitle}
             </h1>
             <a

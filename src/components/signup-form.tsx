@@ -13,7 +13,7 @@ import {
   trackProductEvent,
 } from "../lib/analytics";
 
-export function SignupForm() {
+export function SignupForm({ nextPath = "/app" }: { nextPath?: string }) {
   const router = useRouter();
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -33,14 +33,12 @@ export function SignupForm() {
 
     try {
       const supabase = createClient();
-      const emailRedirectTo = new URL(
-        "/auth/callback?next=%2Fapp",
-        window.location.origin,
-      ).toString();
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", nextPath);
       const { data, error: signupError } = await supabase.auth.signUp({
         email,
         password,
-        options: { emailRedirectTo },
+        options: { emailRedirectTo: callbackUrl.toString() },
       });
 
       if (signupError) {
@@ -53,7 +51,7 @@ export function SignupForm() {
       }
 
       if (data.session) {
-        router.replace("/app");
+        router.replace(nextPath);
         router.refresh();
         return;
       }
@@ -77,6 +75,7 @@ export function SignupForm() {
     <>
       <AuthProviderButton
         onError={setError}
+        nextPath={nextPath}
       />
 
       <div className="my-5 flex items-center gap-4" aria-hidden="true">
@@ -148,6 +147,7 @@ export function SignupForm() {
 
         <ActionButton
           type="submit"
+          data-primary-action
           status={
             isSubmitting
               ? "loading"
@@ -172,7 +172,7 @@ export function SignupForm() {
       <p className="mt-5 text-center text-sm text-text-muted">
         Already have an account?{" "}
         <Link
-          href="/login"
+          href={`/login?next=${encodeURIComponent(nextPath)}`}
           className="rounded-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           Log in

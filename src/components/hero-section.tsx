@@ -11,6 +11,7 @@ export function HeroSection() {
   return (
     <section
       aria-labelledby="hero-title"
+      data-scroll-reveal
       className="relative isolate flex min-h-[min(720px,calc(100svh-80px))] items-center justify-center overflow-hidden bg-background px-5 pb-16 pt-20 sm:px-8 sm:pb-24 sm:pt-24"
     >
       <div
@@ -47,8 +48,9 @@ export function HeroSection() {
           }}
           className="mt-6 max-w-xl text-base leading-7 text-text-muted sm:mt-7 sm:text-[19px] sm:leading-8"
         >
-          Save anything you find online.
-          <br className="hidden sm:block" /> Find it when it matters.
+          For curious people who find more than they can keep track of. Save
+          useful links, organize what matters, and find it again when you need
+          it.
         </motion.p>
         <motion.div
           initial={
@@ -64,9 +66,10 @@ export function HeroSection() {
         >
           <Link
             href="/onboarding"
+            data-primary-action
             className="inline-flex h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-[background-color,transform] active:scale-[0.97] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
           >
-            Start saving
+            Save your first link
             <ArrowRight aria-hidden="true" className="size-4" />
           </Link>
           <a

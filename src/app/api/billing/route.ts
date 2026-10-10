@@ -44,7 +44,6 @@ export async function GET() {
         plans: {
           free: true,
           pro: Boolean(stripePriceForPlan("pro")),
-          power: false,
         },
       },
       { headers: { "Cache-Control": "private, no-store" } },

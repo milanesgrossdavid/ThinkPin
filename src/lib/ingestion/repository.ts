@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatVector } from "../ai/vector";
 import type { AIEmbeddingResult } from "../ai/types";
+import { recordProviderUsage } from "../ai/usage";
 import { calculateReadingTimeMinutes } from "./reading-time";
 
 export async function saveContentDocument(
@@ -125,16 +126,13 @@ export async function recordEmbeddingUsage(
     embedding: AIEmbeddingResult;
   },
 ) {
-  const { error } = await supabase.from("ai_usage").insert({
-    user_id: input.userId,
+  await recordProviderUsage(supabase, {
+    userId: input.userId,
     provider: input.embedding.provider,
     model: input.embedding.model,
-    action_type: "embedding",
-    input_tokens: input.embedding.inputTokens,
-    output_tokens: 0,
-    request_id: input.embedding.requestId ?? null,
+    actionType: "embedding",
+    inputTokens: input.embedding.inputTokens,
+    estimatedCostUsd: input.embedding.estimatedCostUsd,
+    requestId: input.embedding.requestId,
   });
-  if (error) {
-    throw error;
-  }
 }

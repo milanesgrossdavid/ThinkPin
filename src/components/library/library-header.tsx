@@ -37,8 +37,8 @@ export function LibraryHeader({
   }, [bookmarksSnapshot, title]);
 
   return (
-    <header className="border-b border-border/60 bg-background px-5 py-6 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
-      <div className="mx-auto mb-5 flex max-w-container-xl items-center justify-end gap-2">
+    <header className="border-b border-border/60 bg-background px-5 pb-7 pt-4 sm:px-8 sm:pb-9 sm:pt-5 lg:px-12">
+      <div className="mx-auto mb-7 flex max-w-container-xl items-center justify-end gap-2 sm:mb-8">
         <CreditBalance />
         <Link
           href="/app/billing"
@@ -48,45 +48,55 @@ export function LibraryHeader({
         </Link>
         <DashboardAccountButton />
       </div>
-      <div className="mx-auto flex max-w-container-xl items-center justify-between gap-4">
+      <div className="mx-auto flex max-w-container-xl flex-col gap-6 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          <p data-page-eyebrow className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">
             Your Internet Memory
           </p>
-          <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
-            {title}
-          </h1>
-          <p className="mt-2 text-sm leading-6 text-text-muted sm:text-base">
-            <span className="font-medium tabular-nums text-text">
-              {itemCount.toLocaleString()}
-            </span>{" "}
-            things you&apos;ve saved
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+            <h1 data-page-title className="text-4xl font-semibold leading-[1.05] tracking-[-0.055em] text-text sm:text-5xl">
+              {title}
+            </h1>
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-surface-elevated px-3 py-1.5 text-xs font-medium text-text-muted">
+              <span className="tabular-nums text-text">
+                {itemCount.toLocaleString()}
+              </span>
+              {title === "Favorites" ? "favorites" : "saved"}
+            </p>
+          </div>
+          <p data-page-summary className="mt-3 max-w-xl text-sm leading-6 text-text-muted sm:text-base">
+            {title === "Favorites"
+              ? "Your favorite links, ready to open again. Save one from your bookmarks."
+              : "Keep useful links together—save, search, and return to them when you need them."}
           </p>
         </div>
 
-        <div className="flex shrink-0 items-center gap-2">
-          <Link
-            href="/app/import"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border/70 bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
-          >
-            <Upload aria-hidden="true" className="size-4" />
-            <span>Import</span>
-          </Link>
-          <Link
-            href="/app/collections"
-            className="inline-flex h-10 items-center gap-1.5 rounded-full border border-border/70 bg-surface-elevated px-3 text-xs font-medium text-text transition-colors hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-4 sm:text-sm"
-          >
-            <Folder aria-hidden="true" className="size-4" />
-            <span>Collections</span>
-          </Link>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <button
             type="button"
+            data-primary-action
             onClick={() => requestSmartSave()}
-            className="inline-flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-5"
+            className="order-first inline-flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-md shadow-primary/15 transition-[background-color,transform,box-shadow] hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/20 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:order-last sm:w-auto"
           >
-            <Plus aria-hidden="true" className="size-4 sm:size-5" />
-            <span>Save</span>
+            <Plus aria-hidden="true" className="size-5" />
+            <span>Save a link</span>
           </button>
+          <div className="flex items-center justify-center gap-1 sm:mr-2">
+            <Link
+              href="/app/import"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <Upload aria-hidden="true" className="size-4" />
+              <span>Import</span>
+            </Link>
+            <Link
+              href="/app/collections"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full px-3 text-sm font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              <Folder aria-hidden="true" className="size-4" />
+              <span>Collections</span>
+            </Link>
+          </div>
         </div>
       </div>
     </header>

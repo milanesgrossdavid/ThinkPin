@@ -77,7 +77,7 @@ export default async function LibraryHealthPage({
         return (
           <main className="min-h-svh bg-background px-5 py-10 sm:px-8 lg:px-12">
             <div className="mx-auto max-w-container-xl rounded-2xl border border-warning/40 bg-surface-elevated p-6">
-              <h1 className="text-xl font-semibold text-text">Library Health</h1>
+              <h1 data-page-title className="text-xl font-semibold text-text">Library Health</h1>
               <p className="mt-2 text-sm leading-relaxed text-text-muted">
                 Apply{" "}
                 <code className="rounded bg-background px-1.5 py-0.5">
@@ -145,7 +145,7 @@ export default async function LibraryHealthPage({
       return (
         <main className="min-h-svh bg-background px-5 py-10 sm:px-8 lg:px-12">
           <div className="mx-auto max-w-container-xl rounded-2xl border border-warning/40 bg-surface-elevated p-6">
-            <h1 className="text-xl font-semibold text-text">Library Health</h1>
+            <h1 data-page-title className="text-xl font-semibold text-text">Library Health</h1>
             <p className="mt-2 text-sm leading-relaxed text-text-muted">
               Apply{" "}
               <code className="rounded bg-background px-1.5 py-0.5">

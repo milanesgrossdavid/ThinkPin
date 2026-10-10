@@ -393,22 +393,24 @@ export function CollectionDetail({ collectionId }: { collectionId: string }) {
           </Link>
           <div className="mt-5 flex flex-col gap-5 sm:mt-6 sm:flex-row sm:items-end sm:justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                 Collection
               </p>
-              <h1 className="mt-2 wrap-break-word text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
+              <h1 data-page-title className="mt-2 wrap-break-word text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
                 {collection.name}
               </h1>
               <p className="mt-2 text-sm font-medium text-text">
                 {collection.bookmarks.length}{" "}
                 {collection.bookmarks.length === 1 ? "bookmark" : "bookmarks"}
               </p>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
-                {collection.description}
+              <p data-page-summary className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
+                {collection.description ||
+                  `Keep related links together and come back to them when you need them. Add bookmarks to build out ${collection.name}.`}
               </p>
             </div>
             <button
               type="button"
+              data-primary-action
               onClick={openAddDialog}
               className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:px-5"
             >

@@ -15,6 +15,7 @@ import {
   reserveAICredits,
   settleAICredits,
 } from "../../../../lib/billing/credits";
+import { recordProviderUsage } from "../../../../lib/ai/usage";
 import {
   SupabaseAuthUnavailableError,
   throwIfSupabaseAuthUnavailable,
@@ -97,7 +98,23 @@ export async function POST(request: Request) {
     try {
       const response = await searchGlobalWeb(input.query);
       await settleAICredits(admin, user.id, reservation.requestId, response);
-      return NextResponse.json(response);
+      try {
+        await recordProviderUsage(admin, {
+          userId: user.id,
+          provider: "tavily",
+          model: "basic-search",
+          actionType: "global_search",
+          providerCredits: response.providerCredits,
+          estimatedCostUsd: response.estimatedCostUsd,
+          requestId: reservation.requestId,
+        });
+      } catch (usageError) {
+        console.error("Tavily provider usage could not be recorded.", usageError);
+      }
+      return NextResponse.json({
+        query: response.query,
+        results: response.results,
+      });
     } catch (error) {
       try {
         await releaseAICredits(admin, user.id, reservation.requestId);

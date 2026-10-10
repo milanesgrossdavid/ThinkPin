@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { AIEmbeddingResult } from "../ai/types";
+import { recordProviderUsage } from "../ai/usage";
 import { formatVector } from "../ai/vector";
 import type {
   RelatedBookmark,
@@ -157,18 +158,15 @@ export async function recordSearchEmbeddingUsage(
     embedding: AIEmbeddingResult;
   },
 ) {
-  const { error } = await adminClient.from("ai_usage").insert({
-    user_id: input.userId,
+  await recordProviderUsage(adminClient, {
+    userId: input.userId,
     provider: input.embedding.provider,
     model: input.embedding.model,
-    action_type: "semantic_search",
-    input_tokens: input.embedding.inputTokens,
-    output_tokens: 0,
-    request_id: input.embedding.requestId ?? null,
+    actionType: "semantic_search",
+    inputTokens: input.embedding.inputTokens,
+    estimatedCostUsd: input.embedding.estimatedCostUsd,
+    requestId: input.embedding.requestId,
   });
-  if (error) {
-    throw error;
-  }
 }
 
 export async function findBookmarkIdsMissingEmbeddings(

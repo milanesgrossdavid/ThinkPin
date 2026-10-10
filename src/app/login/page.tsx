@@ -26,7 +26,7 @@ export default async function LoginPage({
   }
 
   return (
-    <main className="relative isolate flex min-h-svh flex-col overflow-hidden bg-background px-5 py-4 sm:px-8 sm:py-6">
+    <main data-auth-shell className="relative isolate flex min-h-svh flex-col overflow-x-hidden bg-background px-5 py-4 sm:px-8 sm:py-6">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-[min(90vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--primary)_7%,transparent),transparent_68%)]"
@@ -36,19 +36,21 @@ export default async function LoginPage({
         <AuthLogo />
       </header>
 
-      <div className="flex flex-1 items-center justify-center py-4 sm:py-5">
+      <div data-auth-stage className="flex flex-1 items-center justify-center py-4 sm:py-5">
         <section
           aria-labelledby="login-title"
+          data-auth-card
           className="w-full max-w-[420px] rounded-[28px] border border-border/50 bg-surface-elevated p-6 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.24)] sm:p-8"
         >
           <div className="mb-6 text-center">
             <h1
               id="login-title"
+              data-page-title
               className="text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-[34px]"
             >
               Welcome back
             </h1>
-            <p className="mt-2 text-sm leading-6 text-text-muted">
+            <p data-page-summary className="mt-2 text-sm leading-6 text-text-muted">
               Sign in to pick up where you left off.
             </p>
           </div>

@@ -7,8 +7,8 @@ describe("billing permissions and credits", () => {
   it("provides expected credit costs and plan limits", () => {
     expect(creditCosts.ai_search).toBe(5);
     expect(creditCosts.research_analysis).toBe(30);
-    expect(planCatalog.free.monthlyCredits).toBe(500);
-    expect(planCatalog.pro.monthlyCredits).toBe(2_000);
+    expect(planCatalog.free.monthlyCredits).toBe(750);
+    expect(planCatalog.pro.monthlyCredits).toBe(3_500);
   });
 
   it("uses an active paid subscription period when it contains now", () => {

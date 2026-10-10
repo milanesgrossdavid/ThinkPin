@@ -2,12 +2,11 @@ import {
   Bookmark,
   BookOpen,
   Check,
-  Clock3,
   Command,
   FileText,
   Folder,
   Globe2,
-  LayoutGrid,
+  Heart,
   Link2,
   Search,
   Sparkles,
@@ -17,23 +16,23 @@ import type { ReactNode } from "react";
 
 const libraryItems = [
   {
-    title: "The future of personal knowledge",
-    domain: "every.to",
+    title: "A saved article",
+    domain: "example.com",
     category: "Research",
     color: "from-violet-100 to-indigo-50 dark:from-violet-950 dark:to-indigo-950",
     icon: FileText,
   },
   {
-    title: "A field guide to design",
-    domain: "read.cv",
-    category: "Inspiration",
+    title: "A saved guide",
+    domain: "example.org",
+    category: "Reading",
     color: "from-orange-100 to-rose-50 dark:from-orange-950 dark:to-rose-950",
     icon: BookOpen,
   },
   {
-    title: "Build with AI",
-    domain: "vercel.com",
-    category: "Tools",
+    title: "A saved resource",
+    domain: "example.net",
+    category: "Reference",
     color: "from-slate-200 to-slate-50 dark:from-slate-700 dark:to-slate-800",
     icon: Globe2,
   },
@@ -41,26 +40,25 @@ const libraryItems = [
 
 const searchResults = [
   {
-    title: "A practical guide to building AI products",
-    domain: "every.to",
-    match: "Saved while researching AI tools",
+    title: "A saved article about databases",
+    domain: "example.com",
+    match: "Matches your search",
   },
   {
-    title: "The new stack for AI applications",
-    domain: "vercel.com",
-    match: "Connected to your Supabase resources",
+    title: "A guide to online tools",
+    domain: "example.org",
+    match: "Matches your search",
   },
   {
-    title: "Embeddings and semantic search",
-    domain: "supabase.com",
-    match: "Related to vector databases",
+    title: "A database reference",
+    domain: "example.net",
+    match: "Matches your search",
   },
 ];
 
 const aiSources = [
-  { title: "OpenAI documentation", domain: "platform.openai.com" },
-  { title: "LangChain", domain: "langchain.com" },
-  { title: "Supabase", domain: "supabase.com" },
+  { title: "Saved link 1", domain: "example.com" },
+  { title: "Saved link 2", domain: "example.org" },
 ];
 
 function BrowserFrame({
@@ -93,7 +91,7 @@ function BrowserFrame({
 
 function LibraryMockup() {
   return (
-    <BrowserFrame label="Library dashboard preview">
+    <BrowserFrame label="Illustrative library preview">
       <div className="flex min-h-[300px] sm:min-h-[375px]">
         <aside className="hidden w-40 shrink-0 border-r border-border bg-surface/70 p-4 sm:block">
           <div className="mb-7 flex items-center gap-2 text-xs font-semibold text-text">
@@ -104,14 +102,13 @@ function LibraryMockup() {
           </div>
           <div className="space-y-1 text-[11px]">
             <div className="flex items-center gap-2 rounded-md bg-primary/10 px-2 py-1.5 font-medium text-primary">
-              <LayoutGrid className="size-3.5" />
-              All resources
-              <span className="ml-auto text-[10px]">128</span>
+              <Bookmark className="size-3.5" />
+              All bookmarks
             </div>
             {[
               { label: "Collections", icon: Folder },
-              { label: "Topics", icon: Tags },
-              { label: "Recently saved", icon: Clock3 },
+              { label: "Tags", icon: Tags },
+              { label: "Favorites", icon: Heart },
             ].map(({ label, icon: Icon }) => (
               <div
                 key={label}
@@ -129,7 +126,7 @@ function LibraryMockup() {
             <div>
               <p className="text-[10px] text-text-muted">Your library</p>
               <h3 className="mt-1 text-sm font-semibold text-text sm:text-base">
-                All resources
+                All bookmarks
               </h3>
             </div>
             <span
@@ -185,8 +182,11 @@ function LibraryMockup() {
 
 function SearchMockup() {
   return (
-    <BrowserFrame label="Semantic search preview">
+    <BrowserFrame label="Illustrative search preview">
       <div className="min-h-[300px] p-4 sm:min-h-[345px] sm:p-6">
+        <p className="mb-3 text-[10px] font-medium text-text-muted">
+          Example search
+        </p>
         <div className="flex items-center gap-2 rounded-xl border border-primary/25 bg-background px-3.5 py-3 shadow-sm ring-2 ring-primary/[0.06]">
           <Search className="size-4 shrink-0 text-primary" />
           <span className="min-w-0 flex-1 truncate text-xs text-text sm:text-sm">
@@ -198,9 +198,8 @@ function SearchMockup() {
         </div>
         <div className="mt-4 flex items-center justify-between">
           <p className="text-[10px] font-medium text-text-muted">
-            Results from your memory
+            Example results
           </p>
-          <span className="text-[10px] text-text-muted">3 found</span>
         </div>
         <div className="mt-2 divide-y divide-border/70">
           {searchResults.map((result, index) => (
@@ -240,12 +239,15 @@ function SearchMockup() {
 
 function AiMockup() {
   return (
-    <BrowserFrame label="AI answer from saved resources preview">
+    <BrowserFrame label="Illustrative Ask Your Library preview">
       <div className="min-h-[300px] p-4 sm:min-h-[345px] sm:p-6">
         <div className="flex items-center gap-2 text-[10px] font-medium text-text-muted">
           <Sparkles className="size-3.5 text-primary" />
           Ask your library
         </div>
+        <p className="mt-1 text-[10px] text-text-muted">
+          Illustrative example
+        </p>
         <div className="mt-3 rounded-lg border border-border bg-background/70 px-3 py-2.5 text-xs leading-5 text-text">
           What should I use to build an AI app?
         </div>
@@ -255,12 +257,12 @@ function AiMockup() {
             ANSWER FROM YOUR LIBRARY
           </div>
           <p className="mt-2.5 text-xs leading-5 text-text sm:text-sm sm:leading-6">
-            Based on what you&apos;ve saved, Supabase is a strong fit for your
-            database and auth. Pair it with Vercel AI SDK to build your app.
+            ThinkPin can summarize relevant information from the links in your
+            library and include sources to revisit.
           </p>
           <div className="mt-4 border-t border-border/80 pt-3">
             <p className="text-[9px] font-semibold uppercase tracking-wider text-text-muted">
-              Sources from your library
+              Example sources
             </p>
             <ul className="mt-2 flex flex-wrap gap-1.5">
               {aiSources.map((source) => (
@@ -286,31 +288,31 @@ const showcaseItems = [
     eyebrow: "Your personal library",
     title: (
       <>
-        Your entire Internet,
-        <br className="hidden sm:block" /> organized.
+        A calmer home
+        <br className="hidden sm:block" /> for your links.
       </>
     ),
     description:
-      "Everything you save, together in one calm, searchable place. No folders to maintain and no links left behind.",
+      "Save links to articles, videos, tools, repositories, and more. Add tags and collections, mark favorites, and keep your references in one private library.",
     mockup: <LibraryMockup />,
   },
   {
     id: "search",
-    eyebrow: "Search by meaning",
+    eyebrow: "Search your library",
     title: (
       <>
-        Find anything.
+        Find saved links.
         <br />
-        Even when you don&apos;t remember what it was called.
+        Search by title or keyword.
       </>
     ),
     description:
-      "Search the idea, topic, or detail you remember. Your library helps bring the right resource back.",
+      "Search saved titles, descriptions, and tags. When semantic embeddings are enabled, search by the idea you remember—even if you don't know the exact words.",
     mockup: <SearchMockup />,
   },
   {
     id: "ai",
-    eyebrow: "Answers from your library",
+    eyebrow: "Ask Your Library · Pro",
     title: (
       <>
         Turn your saved knowledge
@@ -318,7 +320,7 @@ const showcaseItems = [
       </>
     ),
     description:
-      "Ask a question and get a response grounded in the things you chose to save, with sources you can revisit.",
+      "Ask a question about your saved links and get an AI-generated response with sources to revisit. Requires Pro and an available AI provider.",
     mockup: <AiMockup />,
   },
 ];
@@ -327,6 +329,7 @@ export function ProductShowcase() {
   return (
     <section
       aria-label="Explore the product"
+      data-scroll-reveal
       className="overflow-hidden bg-surface-elevated px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-container-xl">

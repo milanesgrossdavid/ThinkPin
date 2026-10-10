@@ -329,16 +329,16 @@ export function SearchPage({
     <main className="min-h-svh bg-background px-5 pb-16 pt-8 sm:px-8 sm:pb-20 sm:pt-12 lg:px-12">
       <div className="mx-auto max-w-container-xl">
         <header>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
             Your Internet Memory
           </p>
           <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
+              <h1 data-page-title className="text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
                 Search
               </h1>
-              <p className="mt-2 text-sm text-text-muted sm:text-base">
-                Find anything you&apos;ve saved.
+              <p data-page-summary className="mt-2 text-sm text-text-muted sm:text-base">
+                For your saved links: search titles, domains, and notes to find the right source again.
               </p>
             </div>
             <button
@@ -350,9 +350,6 @@ export function SearchPage({
             >
               <Command aria-hidden="true" className="size-3.5" />
               <span>Commands</span>
-              <kbd className="rounded-md bg-background px-1.5 py-0.5 text-[10px]">
-                ⌘ K / Ctrl K
-              </kbd>
             </button>
           </div>
         </header>
@@ -525,14 +522,14 @@ export function SearchPage({
         )}
 
         {!hasQuery ? (
-          <section className="mt-10 max-w-3xl sm:mt-14">
-            <h2 className="text-xl font-semibold tracking-[-0.03em] text-text">
+          <section className="mx-auto mt-8 w-full max-w-3xl sm:mt-10">
+            <h2 className="text-center text-xl font-semibold tracking-[-0.03em] text-text">
               Search your memory
             </h2>
-            <p className="mt-1 text-sm text-text-muted">
+            <p className="mt-1 text-center text-sm text-text-muted">
               Find anything you&apos;ve saved.
             </p>
-            <h3 className="mt-6 text-sm font-semibold text-text">
+            <h3 className="mt-6 text-center text-sm font-semibold text-text">
               Try searching for
             </h3>
             <div className="mt-3 grid gap-2 sm:grid-cols-2">

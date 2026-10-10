@@ -11,6 +11,7 @@ export function TrustSection() {
   return (
     <section
       aria-labelledby="trust-section-title"
+      data-scroll-reveal
       className="border-y border-border/40 bg-surface-elevated px-5 py-8 sm:px-8 sm:py-9"
     >
       <div className="mx-auto flex max-w-container-xl flex-col items-center gap-5 text-center sm:gap-6">

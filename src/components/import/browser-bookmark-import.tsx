@@ -386,16 +386,16 @@ export function BrowserBookmarkImport({
       </Link>
 
       <header className="mt-8 max-w-2xl">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+        <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
           Bring your saved links with you
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
+        <h1 data-page-title className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
           Import your bookmarks
         </h1>
-        <p className="mt-3 text-sm leading-6 text-text-muted sm:text-base">
-          Start with an HTML bookmark export from Chrome, Firefox, Safari, or
-          Edge. We&apos;ll check it first, skip duplicates, and import in small
-          resumable batches.
+        <p data-page-summary className="mt-3 text-sm leading-6 text-text-muted sm:text-base">
+          Bring links from Chrome, Firefox, Safari, or Edge into your ThinkPin
+          library. Review the preview, skip duplicates, then import in resumable
+          batches.
         </p>
         {!demoMode && (
           <Link

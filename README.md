@@ -154,11 +154,11 @@ reindexación, no solo cambiar una variable de entorno. El adaptador local
 valida los 768 componentes de Ollama y completa con ceros hasta 1536; esto
 conserva las similitudes coseno y permite mantener el esquema actual.
 
-#### Smart Save con IA local
+#### Smart Save con Ollama local o Cloud
 
 Smart Save obtiene el título, la descripción disponible, la imagen Open Graph,
 el favicon y la URL canonical directamente de la página. Cuando se activa
-`AI_BOOKMARK_ENRICHMENT_PROVIDER=ollama`, Inngest también usa un modelo local
+`AI_BOOKMARK_ENRICHMENT_PROVIDER=ollama`, Inngest también usa un modelo
 de chat para mejorar el título, escribir una descripción resumida, sugerir tags
 y tipo/intención, generar una explicación del valor de guardar el enlace y
 elegir la colección con mejor encaje entre las colecciones predeterminadas y
@@ -178,16 +178,58 @@ ollama pull llama3.2:3b
 En `.env.local`:
 
 ```dotenv
+AI_EMBEDDING_PROVIDER=ollama
 AI_BOOKMARK_ENRICHMENT_PROVIDER=ollama
 AI_ANSWER_PROVIDER=ollama
-OLLAMA_BASE_URL=http://127.0.0.1:11434
-OLLAMA_TEXT_MODEL=llama3.2:3b
+OLLAMA_BASE_URL=https://ollama.com
+OLLAMA_API_KEY=<clave guardada solo en el servidor>
+OLLAMA_TEXT_MODEL=<modelo-cloud-disponible-en-tu-cuenta>
+OLLAMA_EMBEDDING_MODEL=<modelo-de-embeddings-compatible>
 ```
 
 Reinicia Next.js después de cambiar las variables. El contenido de página se
-envía únicamente al Ollama local; si Ollama o el modelo no están disponibles,
-se conserva el bookmark y continúa la extracción/indexación determinística.
-El error del paso opcional de IA se registra en el servidor.
+envía a la URL de Ollama configurada: a `127.0.0.1` en local o a Ollama Cloud
+si se configura ese servicio. En Cloud, usa únicamente
+`OLLAMA_BASE_URL=https://ollama.com` y configura `OLLAMA_API_KEY` en `.env.local`
+y en los secretos del hosting; la clave no se expone al navegador. La aplicación
+solo envía esa clave al host oficial de Ollama. Considera que el contenido de los
+bookmarks se transmite al proveedor elegido. Si Ollama o el modelo no están
+disponibles, se conserva el bookmark y continúa la extracción/indexación
+determinística; el error opcional de IA se registra en el servidor.
+
+Para Ollama Cloud, selecciona un modelo de chat disponible en tu cuenta y
+configúralo como `OLLAMA_TEXT_MODEL`. El mismo proveedor se usa para embeddings;
+`OLLAMA_EMBEDDING_MODEL` debe ser compatible con el índice vectorial actual. No
+cambies el modelo de embeddings en una biblioteca ya indexada sin reindexar todos
+los bookmarks: vectores de modelos distintos no son comparables aunque tengan la
+misma dimensión. Los costes de Ollama se estiman solo si configuras las tarifas
+reales del modelo en USD por millón de tokens de entrada y salida:
+`OLLAMA_INPUT_USD_PER_MILLION_TOKENS` y
+`OLLAMA_OUTPUT_USD_PER_MILLION_TOKENS`. Si no hay tarifa, se registran tokens y
+el coste queda sin determinar.
+
+#### Medición de costes de proveedores
+
+`TAVILY_COST_PER_CREDIT_USD` debe reflejar el coste efectivo de un crédito
+Tavily según el plan contratado. ThinkPin solicita el consumo informado en cada
+respuesta y registra esos créditos; si Tavily no lo devuelve, la búsqueda Basic
+usa el coste documentado de un crédito. No se inventa una tarifa monetaria
+predeterminada: si la variable está vacía, los créditos se registran y el coste
+queda sin determinar.
+
+La migración
+`supabase/migrations/20261010170000_add_provider_cost_observability.sql` añade
+las columnas de coste y la función de resumen; aplícala antes de desplegar el
+código que registra uso. El endpoint `GET /api/admin/provider-costs` devuelve
+el resumen del mes UTC y exige que el usuario autenticado figure en
+`BILLING_ADMIN_USER_IDS` como UUID. Además, cuando Ollama Cloud está configurado,
+consulta `https://ollama.com/api/usage?range=30d` y devuelve el coste real que
+informa Ollama para esa cuenta/clave (puede incluir consumo ajeno a ThinkPin y
+el proveedor advierte que el uso puede tardar en aparecer). Si la consulta
+falla, el resultado lo indica sin ocultar el resumen interno. Para Tavily y los
+registros de Ollama por operación, el endpoint también devuelve costes
+estimados según las tarifas configuradas; no los confundas con la factura del
+proveedor. Si falta una tarifa, el consumo queda sin tarifar.
 
 #### Google OAuth
 
@@ -703,7 +745,8 @@ dominio está en `src/types/ai-usage.ts`.
 
 Aplica `supabase/migrations/20261005234700_create_subscriptions.sql`. La
 tabla contiene un estado actual por usuario, planes `free`, `pro`, `power` y
-`team`, estados controlados de Stripe y fechas del período. Sin fila, el
+`team` (Power y Team se conservan solo para compatibilidad con suscripciones
+anteriores), estados controlados de Stripe y fechas del período. Sin fila, el
 usuario permanece en el plan Free; el cliente no puede insertar ni modificar
 suscripciones y RLS solo deja leer la propia. El RPC de sincronización es
 invocable únicamente con `service_role` y descarta eventos anteriores para
@@ -722,22 +765,31 @@ fuera de orden. Checkout es server-side: `subscription_data.metadata.user_id`
 asocia la suscripción con la cuenta y el navegador nunca elige un precio ni
 envía el estado efectivo del plan.
 
+La oferta actual muestra Free (750 créditos mensuales) y un único plan Pro
+(3.500 créditos mensuales). Power ya no se ofrece para nuevas compras; las
+suscripciones Power/Team existentes conservan su allowance previo para evitar
+alterar compras ya realizadas. Automatización y API access no se ofrecen
+mientras esas capacidades no estén implementadas. El checkout de Pro permanece
+desactivado hasta configurar `STRIPE_PRO_PRICE_ID`.
+
 Configura en el entorno server-side `STRIPE_SECRET_KEY`,
 `STRIPE_WEBHOOK_SECRET`, `SUPABASE_SECRET_KEY`, `STRIPE_PRO_PRICE_ID` y
 `APP_URL` (origen HTTPS de la aplicación; `http://localhost:3000` en local).
 Los Price IDs son valores configurados en Stripe, no importes definidos por
-ThinkPin. `STRIPE_POWER_PRICE_ID` y `STRIPE_TEAM_PRICE_ID` son opcionales hasta
-que esos planes se ofrezcan. No expongas claves con prefijo `NEXT_PUBLIC_`;
+ThinkPin. `STRIPE_POWER_PRICE_ID` y `STRIPE_TEAM_PRICE_ID` solo se requieren
+para procesar suscripciones antiguas; no los configures para nuevas ventas. No
+expongas claves con prefijo `NEXT_PUBLIC_`;
 `.env.example` muestra los nombres sin credenciales.
 
 `/app/billing` presenta el plan, uso y saldo; Checkout y el Customer Portal se
 abren desde endpoints autenticados. Las capacidades se comprueban también en
 las operaciones de Ask, búsqueda semántica, Research y Learning. Ask, búsqueda
 semántica, informes y Learning reservan créditos con claves de idempotencia y
-liberan la reserva cuando falla la operación. Las cuotas mensuales iniciales
-(Free 100, Pro 2.000, Power 10.000) y los costes por acción de
-`src/lib/billing/plans.ts` son provisionales; los precios monetarios proceden
-de los Price IDs del entorno Stripe. El tipo de dominio está en
+liberan la reserva cuando falla la operación. Las cuotas mensuales actuales
+(Free 750, Pro 3.500) y los costes por acción de
+`src/lib/billing/plans.ts` son provisionales; las suscripciones legadas
+conservan sus cuotas existentes. Los precios monetarios proceden de los Price
+IDs del entorno Stripe. El tipo de dominio está en
 `src/types/subscription.ts`.
 
 #### Seguridad y exposición pública
@@ -796,15 +848,17 @@ contenido de bookmarks, email ni contraseñas. La identidad de PostHog usa el
 ID interno de Supabase, solo después del consentimiento. Los eventos de primera
 acción se deduplican localmente por identidad.
 
-El onboarding actual es una demostración local y no representa activación real;
-por eso no emite eventos de onboarding ni se debe usar para medir la conversión
-de registro. `first_bookmark` y `first_search` solo son observables si el
-consentimiento está activo cuando se produce la acción. La diferencia temporal
-entre `signup` y `first_bookmark` permite estimar `time_to_first_bookmark` para
-esas cuentas, no para quienes aceptan analítica después. WAU, retención y
-bookmarks semanales se calculan como agregados sobre eventos consentidos, no se
-emiten como eventos semanales sintéticos. No se fijan objetivos antes de tener
-una línea base.
+El onboarding permite probar el primer guardado antes del registro: conserva
+solo la URL pendiente en `localStorage` y la envía a la API autenticada cuando
+la persona inicia sesión o crea su cuenta. La URL pendiente se elimina después
+de guardarla o confirmar que ya existía. No se emiten eventos de activación
+antes de la autenticación. `first_bookmark` y `first_search` solo son
+observables si el consentimiento está activo cuando se produce la acción. La
+diferencia temporal entre `signup` y `first_bookmark` permite estimar
+`time_to_first_bookmark` para esas cuentas, no para quienes aceptan analítica
+después. WAU, retención y bookmarks semanales se calculan como agregados sobre
+eventos consentidos, no se emiten como eventos semanales sintéticos. No se fijan
+objetivos antes de tener una línea base.
 
 Sentry captura errores de requests no controlados, errores explícitos de Ask,
 búsqueda, importación y webhooks de Stripe, y una muestra del 10 % de trazas.
@@ -854,3 +908,20 @@ pnpm start
   `pnpm dlx rareui add <componente> -y`.
 - Los componentes usan shadcn/ui, Tailwind CSS y Motion. Las dependencias del
   proyecto se administran con pnpm.
+
+## Experiencia del sitio
+
+- La página `404` raíz muestra una pantalla de recuperación para rutas
+  inexistentes.
+- Las secciones de marketing se revelan al entrar en pantalla. Si el navegador
+  solicita movimiento reducido, la animación se desactiva.
+- El tema sigue la preferencia del sistema la primera vez y guarda la elección
+  en `localStorage` (`thinkpin-theme`) al alternar claro/oscuro.
+- La biblioteca autenticada ya incluye búsqueda por título, descripción y
+  etiquetas; la búsqueda semántica depende de embeddings configurados.
+- El formulario de contacto usa `mailto:`: prepara el borrador en el cliente y
+  no guarda ni envía mensajes por el servidor. Configura
+  `NEXT_PUBLIC_CONTACT_EMAIL` localmente y en el hosting; la dirección se
+  muestra públicamente.
+- No se publican testimonios inventados. La sección de feedback invita a
+  usuarios reales a compartir su experiencia.

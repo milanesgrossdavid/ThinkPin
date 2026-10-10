@@ -6,44 +6,54 @@ import { MorphIcon } from "morphicons/react";
 
 const questions = [
   {
-    question: "What is this?",
+    question: "What is ThinkPin?",
     answer:
-      "ThinkPin is a personal memory for the things you find online. Save useful links and ideas, then find and reconnect with them when they matter.",
+      "ThinkPin is a personal library for useful links. Save, organize, and search your bookmarks, with optional AI features for supported plans.",
   },
   {
     question: "What can I save?",
     answer:
-      "The goal is to bring your online discoveries together: articles, videos, tools, products, research, GitHub repositories, and ideas.",
+      "Save links to articles, videos, tools, products, research, GitHub repositories, and other web pages. Metadata availability depends on the source page.",
   },
   {
     question: "How does AI organize my bookmarks?",
     answer:
-      "ThinkPin is designed to use the content and context of saved resources to identify topics and relationships, so your library can help you rediscover them.",
+      "When AI organization is enabled and an AI provider is configured, ThinkPin can generate a title, summary, tags, and content type for a bookmark. You can also organize links yourself with tags and collections.",
   },
   {
     question: "Can I import my existing bookmarks?",
     answer:
-      "Bookmark import options have not been finalized yet. We’ll share supported formats and migration details as the product gets closer to launch.",
+      "Yes. Sign in and use Import to upload an HTML bookmarks export from your browser.",
   },
   {
     question: "Can I search by meaning?",
     answer:
-      "Finding something by the idea or topic you remember is part of the product vision. Search capabilities and availability will be confirmed as development progresses.",
+      "Keyword search is available for your library. Semantic search is available when an embeddings provider is configured; it uses AI credits.",
+  },
+  {
+    question: "How do I search my library?",
+    answer:
+      "Use the search field at the top of Your Library to search saved titles, descriptions, and tags. Semantic search is also available when embeddings are enabled for your account.",
   },
   {
     question: "Is my library private?",
     answer:
-      "Privacy is a launch-critical requirement. Before the product goes live, we’ll clearly explain how library data is stored, who can access it, and how any AI processing works.",
+      "Your library is associated with your account, and access is checked by the application and database policies. If you use AI features, the relevant bookmark information is processed by the configured AI provider. Do not save sensitive information you would not want processed by that provider.",
   },
   {
-    question: "Is there a free plan?",
+    question: "What is included in Free and Pro?",
     answer:
-      "Pricing and plan details have not been finalized. We’ll publish them before launch.",
+      "Free includes 750 AI credits per month. Pro includes 3,500 monthly credits and additional features such as Ask Your Library, summaries, research, learning, and decision boards. The current subscription price is shown in checkout before you confirm payment.",
   },
   {
-    question: "Can I use it from my browser?",
+    question: "How do I save links from my browser?",
     answer:
-      "ThinkPin is being designed for saving things from across the web. Browser support and extension availability will be shared as they’re confirmed.",
+      "Paste a link into ThinkPin to save it. You can also import your existing browser bookmarks using an HTML export. A browser extension is not currently available.",
+  },
+  {
+    question: "How can I contact ThinkPin?",
+    answer:
+      "Use the contact form at the bottom of this page. It prepares an email in your email app; the message is only sent when you choose to send it.",
   },
 ];
 
@@ -66,7 +76,9 @@ export function FAQSection() {
 
   return (
     <section
+      id="faq"
       aria-labelledby="faq-title"
+      data-scroll-reveal
       className="bg-surface-elevated px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div className="mx-auto max-w-3xl">

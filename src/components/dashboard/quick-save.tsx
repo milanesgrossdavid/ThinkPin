@@ -16,7 +16,7 @@ export function QuickSave() {
     <section
       id="quick-save"
       aria-label="Quick save a bookmark"
-      className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-8 md:static md:z-auto md:bg-none md:px-8 md:pb-8 md:pt-4 lg:px-12"
+      className="fixed inset-x-0 bottom-0 z-40 bg-gradient-to-t from-background via-background/95 to-transparent px-4 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-8 md:static md:z-auto md:bg-none md:px-8 md:pb-5 md:pt-0 lg:px-12"
     >
       <div className="mx-auto max-w-container-xl">
         <form
@@ -42,6 +42,7 @@ export function QuickSave() {
           </label>
           <button
             type="submit"
+            data-primary-action
             className="inline-flex h-11 shrink-0 items-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
           >
             <Plus aria-hidden="true" className="size-4" />
@@ -51,6 +52,7 @@ export function QuickSave() {
 
         <button
           type="button"
+          data-primary-action
           onClick={() => requestSmartSave()}
           className="flex min-h-[60px] w-full items-center gap-3 rounded-2xl border border-border/60 bg-surface-elevated p-2.5 text-left shadow-xl shadow-black/10 backdrop-blur-xl transition-transform active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary md:hidden"
         >

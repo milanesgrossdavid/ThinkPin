@@ -6,9 +6,9 @@ import { AskLibrarySection } from "../../components/ask-library-section";
 import { TrustSection } from "../../components/trust-section";
 import { ProductShowcase } from "../../components/product-showcase";
 import { UseCasesSection } from "../../components/use-cases-section";
-import { MemorySection } from "../../components/memory-section";
-import { TimelineSection } from "../../components/timeline-section";
 import { CTASection } from "../../components/cta-section";
+import { TestimonialsSection } from "../../components/testimonials-section";
+import { ContactSection } from "../../components/contact-section";
 import { FAQSection } from "../../components/faq-section";
 import { createClient } from "../../lib/supabase/server";
 
@@ -31,9 +31,9 @@ export default async function Home() {
       <AskLibrarySection />
       <ProductShowcase />
       <UseCasesSection />
-      <MemorySection />
-      <TimelineSection />
+      <TestimonialsSection />
       <CTASection />
+      <ContactSection />
       <FAQSection />
     </main>
   );

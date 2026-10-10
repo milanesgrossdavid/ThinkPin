@@ -58,16 +58,17 @@ export function DecisionBoards({
               <Scale aria-hidden="true" className="size-4" />
               Decision Boards
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
+            <h1 data-page-title className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
               Compare with evidence.
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
-              Define the options and criteria that matter to you. Gather
-              evidence side by side; the decision stays yours.
+            <p data-page-summary className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
+              For decisions with competing options: compare saved evidence
+              against your criteria, while the final choice stays yours.
             </p>
           </div>
           <button
             type="button"
+            data-primary-action
             onClick={() => setShowForm((visible) => !visible)}
             className="inline-flex h-10 items-center gap-2 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
@@ -151,6 +152,7 @@ export function DecisionBoards({
               </button>
               <button
                 type="submit"
+                data-primary-action
                 disabled={isPending}
                 className="min-h-10 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-60"
               >

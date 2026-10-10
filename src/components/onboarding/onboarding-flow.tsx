@@ -3,8 +3,6 @@
 import {
   useRef,
   useState,
-  type ChangeEvent,
-  type DragEvent,
   type FormEvent,
 } from "react";
 import Link from "next/link";
@@ -13,7 +11,6 @@ import {
   ArrowRight,
   Bookmark,
   Check,
-  FileUp,
   Globe2,
   Link2,
   Sparkles,
@@ -22,7 +19,7 @@ import { Check as CheckIcon, Plus } from "lucide";
 import { MorphIcon } from "morphicons/react";
 import { motion, useReducedMotion } from "motion/react";
 import { AuthLogo } from "../auth-logo";
-import { bookmarksStorageKey } from "../../lib/bookmarks";
+import { savePendingBookmark } from "../../lib/bookmarks/pending-bookmark";
 
 const steps = ["Welcome", "Interests", "Import", "First save"] as const;
 const interests = [
@@ -119,11 +116,12 @@ function StepHeading({
       </p>
       <h1
         id={id}
+        data-page-title
         className="mt-3 text-3xl font-semibold leading-[1.06] tracking-[-0.045em] text-text sm:text-4xl"
       >
         {title}
       </h1>
-      <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-text-muted sm:text-base sm:leading-7">
+      <p data-page-summary className="mx-auto mt-3 max-w-lg text-sm leading-6 text-text-muted sm:text-base sm:leading-7">
         {description}
       </p>
     </div>
@@ -137,6 +135,7 @@ function WelcomeIllustration() {
     <div
       role="img"
       aria-label="A saved article connects to research, AI, and design in your memory"
+      data-onboarding-welcome-art
       className="mx-auto mt-8 flex w-full max-w-[340px] flex-col items-center gap-3 sm:mt-9"
     >
       <div className="flex min-h-14 w-full max-w-[260px] items-center gap-3 rounded-2xl border border-border/60 bg-surface-elevated px-4 py-3 shadow-sm">
@@ -222,81 +221,25 @@ function InterestOptions({
   );
 }
 
-function ImportStep({
-  selectedFile,
-  onFileSelected,
-  onUnsupportedFile,
-}: {
-  selectedFile: string;
-  onFileSelected: (file: File) => void;
-  onUnsupportedFile: () => void;
-}) {
-  const fileInputId = "bookmark-file";
-
-  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.currentTarget.files?.[0];
-    if (file) {
-      onFileSelected(file);
-    }
-  }
-
-  function handleDrop(event: DragEvent<HTMLLabelElement>) {
-    event.preventDefault();
-    const file = event.dataTransfer.files[0];
-    if (!file) {
-      return;
-    }
-
-    if (!/\.html?$/i.test(file.name)) {
-      onUnsupportedFile();
-      return;
-    }
-
-    onFileSelected(file);
-  }
-
+function ImportStep() {
   return (
-    <div className="mt-7">
-      <label
-        htmlFor={fileInputId}
-        onDragOver={(event) => event.preventDefault()}
-        onDrop={handleDrop}
-        className="flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-[24px] border border-dashed border-border bg-surface-elevated px-5 py-8 text-center transition-colors hover:border-primary/50 hover:bg-surface focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-primary sm:min-h-56"
-      >
-        <span className="flex size-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-          <FileUp aria-hidden="true" className="size-5" />
-        </span>
-        <span className="mt-4 text-sm font-semibold text-text">
-          {selectedFile || "Drop your bookmark file"}
-        </span>
-        <span className="mt-1 text-xs text-text-muted">
-          or choose an HTML export from your browser
-        </span>
-        <span className="mt-4 inline-flex h-9 items-center rounded-full border border-border bg-background px-4 text-xs font-medium text-text">
-          Choose file
-        </span>
-        <input
-          id={fileInputId}
-          type="file"
-          accept=".html,.htm,text/html"
-          className="sr-only"
-          onChange={handleFileChange}
-        />
-      </label>
-      <p className="mt-3 text-center text-xs leading-5 text-text-muted">
-        Importing browser files is not available in this preview. Your file
-        stays on this device.
+    <div className="mt-7 rounded-2xl border border-border/60 bg-background p-5 text-center sm:p-6">
+      <span className="mx-auto flex size-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+        <Bookmark aria-hidden="true" className="size-5" />
+      </span>
+      <p className="mt-4 text-sm font-semibold text-text">
+        Import your browser bookmarks anytime
       </p>
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        {["Chrome", "Firefox", "Safari", "Edge", "HTML"].map((source) => (
-          <span
-            key={source}
-            className="rounded-full bg-background px-3 py-1.5 text-[11px] font-medium text-text-muted"
-          >
-            {source}
-          </span>
-        ))}
-      </div>
+      <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-text-muted">
+        HTML bookmark import is available in your library after you sign in.
+        Let&apos;s save one link first.
+      </p>
+      <Link
+        href="/login?next=%2Fapp%2Fimport"
+        className="mt-4 inline-flex min-h-10 items-center rounded-full px-4 text-sm font-medium text-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      >
+        Go to import
+      </Link>
     </div>
   );
 }
@@ -363,7 +306,6 @@ export function OnboardingFlow() {
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedInterests, setSelectedInterests] = useState<Interest[]>([]);
   const [otherInterest, setOtherInterest] = useState("");
-  const [selectedFile, setSelectedFile] = useState("");
   const [bookmarkUrl, setBookmarkUrl] = useState("");
   const [preview, setPreview] = useState<BookmarkRecord | null>(null);
   const [savedBookmark, setSavedBookmark] = useState<BookmarkRecord | null>(null);
@@ -395,13 +337,6 @@ export function OnboardingFlow() {
     setCurrentStep(2);
   }
 
-  function handleFileSelected(file: File) {
-    setSelectedFile(file.name);
-    setMessage(
-      "The file is selected locally, but bookmark import is not connected yet.",
-    );
-  }
-
   function handleBookmarkPreview(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -427,28 +362,19 @@ export function OnboardingFlow() {
     }
 
     try {
-      const existing = window.localStorage.getItem(bookmarksStorageKey);
-      const bookmarks: BookmarkRecord[] = existing ? JSON.parse(existing) : [];
-
-      if (!Array.isArray(bookmarks)) {
-        throw new Error("Stored bookmark data is invalid.");
-      }
-
-      if (!bookmarks.some((bookmark) => bookmark.url === preview.url)) {
-        bookmarks.push(preview);
-      }
-
-      window.localStorage.setItem(
-        bookmarksStorageKey,
-        JSON.stringify(bookmarks),
-      );
-      setSavedBookmark(preview);
+      const url = savePendingBookmark(window.localStorage, preview.url);
+      const parsedUrl = new URL(url);
+      setSavedBookmark({
+        url,
+        domain: parsedUrl.hostname.replace(/^www\./, ""),
+        savedAt: new Date().toISOString(),
+      });
       setIsComplete(true);
       setMessage("");
     } catch (error) {
       setMessage(
-        error instanceof Error && error.message === "Stored bookmark data is invalid."
-          ? "Saved bookmark data in this browser is invalid. Clear it before saving a new link."
+        error instanceof Error
+          ? error.message
           : "We couldn't save this link in this browser. Check storage permissions and try again.",
       );
     }
@@ -473,17 +399,18 @@ export function OnboardingFlow() {
         <Check aria-hidden="true" className="size-7" />
       </span>
       <p className="mt-6 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
-        Saved to this device
+        Ready for your library
       </p>
       <h1
         id="onboarding-title"
+        data-page-title
         className="mt-3 text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl"
       >
-        Your first bookmark is saved.
+        Your first link is ready.
       </h1>
-      <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-text-muted sm:text-base sm:leading-7">
-        This is the beginning of your Internet Memory. The link is stored in
-        this browser for this prototype.
+      <p data-page-summary className="mx-auto mt-3 max-w-md text-sm leading-6 text-text-muted sm:text-base sm:leading-7">
+        Sign in to add it to your library. We&apos;ll keep it on this device
+        until your account is ready.
       </p>
       {savedBookmark && (
         <div className="mx-auto mt-6 flex max-w-md items-center gap-3 rounded-2xl bg-background p-4 text-left">
@@ -500,13 +427,21 @@ export function OnboardingFlow() {
           </span>
         </div>
       )}
-      <Link
-        href="/"
-        className="mt-7 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-      >
-        Back to ThinkPin
-        <ArrowRight aria-hidden="true" className="size-4" />
-      </Link>
+      <div className="mt-7 flex flex-col items-center gap-3">
+        <Link
+          href="/login?next=%2Fapp"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Sign in to save it
+          <ArrowRight aria-hidden="true" className="size-4" />
+        </Link>
+        <Link
+          href="/signup?next=%2Fapp"
+          className="min-h-10 rounded-full px-4 py-2 text-sm font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+        >
+          Create an account
+        </Link>
+      </div>
     </div>
   ) : (
     <>
@@ -517,13 +452,14 @@ export function OnboardingFlow() {
           </p>
           <h1
             id="onboarding-step-0"
+            data-page-title
             className="mt-3 text-3xl font-semibold leading-[1.05] tracking-[-0.05em] text-text sm:text-5xl"
           >
             Welcome to your
             <br />
             Internet Memory.
           </h1>
-          <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-text-muted sm:mt-4 sm:text-base sm:leading-7">
+          <p data-page-summary className="mx-auto mt-3 max-w-md text-sm leading-6 text-text-muted sm:mt-4 sm:text-base sm:leading-7">
             Everything you find online, finally in one place.
           </p>
           <p className="mt-3 text-sm font-medium leading-6 text-text sm:mt-4">
@@ -540,7 +476,7 @@ export function OnboardingFlow() {
             id="onboarding-step-1"
             eyebrow="Make it yours"
             title="What do you usually save?"
-            description="Choose a few topics that matter to you. We'll use them to personalize your experience."
+            description="Choose a few topics that matter to you. You can skip this and start saving right away."
           />
           <div className="mt-7">
             <InterestOptions
@@ -571,16 +507,10 @@ export function OnboardingFlow() {
           <StepHeading
             id="onboarding-step-2"
             eyebrow="Bring your library"
-            title="Bring your bookmarks with you."
-            description="Already have bookmarks somewhere else? Import them and we'll organize them for you."
+            title="Import bookmarks when you&apos;re ready."
+            description="After sign-in, import an HTML export from your browser. Or skip this step and save a link now."
           />
-          <ImportStep
-            selectedFile={selectedFile}
-            onFileSelected={handleFileSelected}
-            onUnsupportedFile={() =>
-              setMessage("Choose an HTML bookmark export to continue.")
-            }
-          />
+          <ImportStep />
         </div>
       )}
 
@@ -629,6 +559,7 @@ export function OnboardingFlow() {
             </div>
             <button
               type="submit"
+              data-primary-action
               className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-primary px-5 text-sm font-medium text-primary-foreground transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:hidden"
             >
               Preview link
@@ -697,7 +628,7 @@ export function OnboardingFlow() {
   const showFooter = !isComplete;
 
   return (
-    <main className="relative isolate flex min-h-svh flex-col overflow-hidden bg-background px-5 py-4 sm:px-8 sm:py-6">
+    <main data-onboarding-shell className="relative isolate flex min-h-svh flex-col overflow-x-hidden bg-background px-5 py-4 sm:px-8 sm:py-6">
       <div
         aria-hidden="true"
         className="pointer-events-none absolute left-1/2 top-1/2 -z-10 size-[min(90vw,760px)] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_at_center,color-mix(in_srgb,var(--primary)_6%,transparent),transparent_68%)]"
@@ -708,12 +639,13 @@ export function OnboardingFlow() {
         {!isComplete && <ProgressIndicator currentStep={currentStep} />}
       </header>
 
-      <div className="flex flex-1 items-center justify-center py-6 sm:py-8">
+      <div data-onboarding-stage className="flex flex-1 items-center justify-center py-6 sm:py-8">
         <section
           aria-labelledby={
             isComplete ? "onboarding-title" : `onboarding-step-${currentStep}`
           }
           aria-live="polite"
+          data-onboarding-card
           className="w-full max-w-[560px] rounded-[28px] border border-border/50 bg-surface-elevated p-5 shadow-[0_24px_80px_-40px_rgba(0,0,0,0.24)] sm:p-8 lg:p-10"
         >
           <motion.div
@@ -761,10 +693,7 @@ export function OnboardingFlow() {
                 currentStep === 1
                   ? skipInterests
                   : currentStep === 2
-                    ? () => {
-                        setSelectedFile("");
-                        moveToStep(3);
-                      }
+                    ? () => moveToStep(3)
                     : undefined
               }
               continueLabel={

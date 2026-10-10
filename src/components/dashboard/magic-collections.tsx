@@ -447,6 +447,25 @@ export function MagicCollections() {
     );
   }
 
+  if (!suggestions.length) {
+    return (
+      <section className="px-5 py-3 sm:px-8 lg:px-12">
+        <div className="mx-auto flex max-w-container-xl items-center gap-3 rounded-2xl border border-border/60 bg-surface-elevated px-4 py-3">
+          <Sparkles
+            aria-hidden="true"
+            className="size-4 shrink-0 text-primary"
+          />
+          <p className="min-w-0 flex-1 text-xs leading-5 text-text-muted sm:text-sm">
+            <span className="font-semibold text-text">Smart Collections</span>
+            <span aria-hidden="true"> · </span>
+            Suggestions appear when there are meaningful patterns in at least
+            three saved links.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section
       aria-labelledby="magic-collections-heading"
@@ -472,7 +491,7 @@ export function MagicCollections() {
         </div>
 
         {suggestions.length ? (
-          <div className="mt-5 grid gap-3 lg:grid-cols-2">
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
             {suggestions.map((suggestion) => (
               <article
                 key={suggestion.id}

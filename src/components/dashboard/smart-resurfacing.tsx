@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowUpRight, RotateCcw, Sparkles, X } from "lucide-react";
+import { ArrowUpRight, RotateCcw, Sparkles, X, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { saveResurfacingFeedback } from "../../app/actions/resurfacing";
@@ -50,9 +50,17 @@ export function SmartResurfacing({
   if (error) {
     return (
       <section className="px-5 py-3 sm:px-8 lg:px-12" aria-label="Smart Resurfacing">
-        <p className="mx-auto max-w-container-xl rounded-2xl border border-warning/40 bg-surface-elevated px-5 py-4 text-sm text-text-muted">
-          {error}
-        </p>
+        <div className="mx-auto flex max-w-container-xl flex-wrap items-center justify-between gap-3 rounded-2xl border border-warning/40 bg-surface-elevated px-5 py-4">
+          <p className="text-sm leading-6 text-text-muted">{error}</p>
+          <button
+            type="button"
+            onClick={() => router.refresh()}
+            className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-border px-3 text-xs font-semibold text-text transition-colors hover:bg-background focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <RefreshCw aria-hidden="true" className="size-3.5" />
+            Try again
+          </button>
+        </div>
       </section>
     );
   }

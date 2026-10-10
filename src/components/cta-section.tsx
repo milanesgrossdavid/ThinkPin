@@ -6,6 +6,7 @@ export function CTASection() {
     <section
       id="get-started"
       aria-labelledby="cta-title"
+      data-scroll-reveal
       className="relative isolate overflow-hidden bg-background px-5 py-24 sm:px-8 sm:py-28 lg:py-32"
     >
       <div
@@ -28,6 +29,7 @@ export function CTASection() {
         </p>
         <Link
           href="/onboarding"
+          data-primary-action
           className="mt-8 inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 py-3 text-sm font-medium text-primary-foreground transition-[background-color,transform] active:scale-[0.97] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary sm:mt-10 sm:text-base"
         >
           Start building your memory

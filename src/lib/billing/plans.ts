@@ -66,12 +66,12 @@ const proFeatures: Record<FeatureKey, boolean> = {
 export const planCatalog: Record<BillingPlan, PlanDefinition> = {
   free: {
     label: "Free",
-    monthlyCredits: 500,
+    monthlyCredits: 750,
     features: freeFeatures,
   },
   pro: {
     label: "Pro",
-    monthlyCredits: 2_000,
+    monthlyCredits: 3_500,
     stripePriceEnvironmentVariable: "STRIPE_PRO_PRICE_ID",
     features: proFeatures,
   },

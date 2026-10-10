@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
+import { ThemeToggle } from "../theme-toggle";
 
 export function DashboardAccountButton() {
   const router = useRouter();
@@ -34,6 +35,7 @@ export function DashboardAccountButton() {
 
   return (
     <>
+      <ThemeToggle />
       <button
         type="button"
         onClick={handleSignOut}

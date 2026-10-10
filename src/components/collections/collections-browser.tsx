@@ -96,7 +96,7 @@ function CollectionPreview({ bookmarks }: { bookmarks: LibraryBookmark[] }) {
 
   if (previewItems.length === 0) {
     return (
-      <div className="flex aspect-[1.8/1] items-center justify-center bg-gradient-to-br from-primary/10 via-surface to-surface-elevated">
+      <div className="flex aspect-[2.8/1] items-center justify-center bg-gradient-to-br from-primary/10 via-surface to-surface-elevated">
         <span className="flex size-12 items-center justify-center rounded-2xl border border-border/60 bg-surface-elevated text-primary shadow-sm">
           <Folder aria-hidden="true" className="size-5" />
         </span>
@@ -490,20 +490,21 @@ export function CollectionsBrowser({
       )}
       <header className="border-b border-border/60 bg-background px-5 py-7 sm:px-8 sm:py-10 lg:px-12">
         <div className="mx-auto max-w-container-xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
             Your Internet Memory
           </p>
           <div className="mt-2 flex items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
+              <h1 data-page-title className="text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
                 Collections
               </h1>
-              <p className="mt-2 text-sm leading-6 text-text-muted sm:text-base">
-                Organize the things you want to remember.
+              <p data-page-summary className="mt-2 text-sm leading-6 text-text-muted sm:text-base">
+                Group saved links by project or topic, so related sources are easy to find again.
               </p>
             </div>
             <button
               type="button"
+              data-primary-action
               onClick={openCreate}
               className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-full bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm transition-[background-color,transform] hover:bg-primary/90 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:h-11 sm:gap-2 sm:px-5"
             >
@@ -678,6 +679,7 @@ export function CollectionsBrowser({
                 </button>
                 <ActionButton
                   type="submit"
+                  data-primary-action
                   status={
                     isPending
                       ? "loading"

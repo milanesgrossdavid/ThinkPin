@@ -7,7 +7,10 @@ import {
   type BookmarkEnrichment,
   type BookmarkEnrichmentInput,
 } from "../types";
-import { getOllamaBaseUrl } from "./ollama-url";
+import {
+  estimateOllamaCostUsd,
+  getOllamaRequestConfig,
+} from "./ollama-url";
 
 const PROVIDER_ID = "ollama";
 const MAX_CONTENT_LENGTH = 12_000;
@@ -158,15 +161,16 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
     const model = process.env.OLLAMA_TEXT_MODEL?.trim();
     if (!model) {
       throw new AIProviderUnavailableError(
-        "OLLAMA_TEXT_MODEL is required for local library answers.",
+        "OLLAMA_TEXT_MODEL is required for library answers.",
       );
     }
 
+    const ollama = getOllamaRequestConfig();
     let response: Response;
     try {
-      response = await fetch(`${getOllamaBaseUrl()}/api/chat`, {
+      response = await fetch(`${ollama.baseUrl}/api/chat`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: ollama.headers,
         body: JSON.stringify({
           model,
           stream: false,
@@ -187,7 +191,7 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
       });
     } catch {
       throw new AIProviderUnavailableError(
-        "Local Ollama answer generation is unavailable. Start Ollama and make sure the configured chat model is installed.",
+        "Ollama answer generation is unavailable. Check the configured local server or Cloud credentials and confirm the chat model is available.",
       );
     }
 
@@ -196,7 +200,7 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
       const error = asRecord(payload);
       const details = typeof error.error === "string" ? ` ${error.error}` : "";
       throw new AIProviderUnavailableError(
-        `Local Ollama could not answer the library question.${details}`,
+        `Ollama could not answer the library question.${details}`,
       );
     }
 
@@ -217,6 +221,13 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
           : 0,
       outputTokens:
         typeof result.eval_count === "number" ? result.eval_count : 0,
+      estimatedCostUsd: estimateOllamaCostUsd(
+        ollama,
+        typeof result.prompt_eval_count === "number"
+          ? result.prompt_eval_count
+          : 0,
+        typeof result.eval_count === "number" ? result.eval_count : 0,
+      ),
     };
   },
   async enrichBookmark({
@@ -229,15 +240,16 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
     const model = process.env.OLLAMA_TEXT_MODEL?.trim();
     if (!model) {
       throw new AIProviderUnavailableError(
-        "OLLAMA_TEXT_MODEL is required for local bookmark enrichment.",
+        "OLLAMA_TEXT_MODEL is required for bookmark enrichment.",
       );
     }
 
+    const ollama = getOllamaRequestConfig();
     let response: Response;
     try {
-      response = await fetch(`${getOllamaBaseUrl()}/api/chat`, {
+      response = await fetch(`${ollama.baseUrl}/api/chat`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: ollama.headers,
         body: JSON.stringify({
           model,
           stream: false,
@@ -265,7 +277,7 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
       });
     } catch {
       throw new AIProviderUnavailableError(
-        "Local Ollama text generation is unavailable. Start Ollama and make sure the configured chat model is installed.",
+        "Ollama text generation is unavailable. Check the configured local server or Cloud credentials and confirm the chat model is available.",
       );
     }
 
@@ -274,7 +286,7 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
       const error = asRecord(payload);
       const details = typeof error.error === "string" ? ` ${error.error}` : "";
       throw new AIProviderUnavailableError(
-        `Local Ollama could not enrich the bookmark.${details}`,
+        `Ollama could not enrich the bookmark.${details}`,
       );
     }
 
@@ -294,6 +306,26 @@ export const ollamaTextProvider: AITextProvider & AIAnswerProvider = {
         "Ollama returned malformed JSON for bookmark enrichment.",
       );
     }
-    return parseEnrichment(generated, title, collections);
+    const inputTokens =
+      typeof result.prompt_eval_count === "number"
+        ? result.prompt_eval_count
+        : 0;
+    const outputTokens =
+      typeof result.eval_count === "number" ? result.eval_count : 0;
+
+    return {
+      ...parseEnrichment(generated, title, collections),
+      usage: {
+        provider: PROVIDER_ID,
+        model,
+        inputTokens,
+        outputTokens,
+        estimatedCostUsd: estimateOllamaCostUsd(
+          ollama,
+          inputTokens,
+          outputTokens,
+        ),
+      },
+    };
   },
 };

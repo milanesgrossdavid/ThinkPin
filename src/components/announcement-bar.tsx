@@ -5,7 +5,7 @@ type AnnouncementBarProps = {
 };
 
 export function AnnouncementBar({
-  message = "Your Internet, finally organized",
+  message = "Your useful links, finally organized",
   actionLabel = "See how it works",
   href = "#how-it-works",
 }: AnnouncementBarProps) {

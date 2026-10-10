@@ -4,6 +4,8 @@ export type AIUsageActionType =
   | "bookmark_tagging"
   | "semantic_search"
   | "ai_search"
+  | "ai_answer"
+  | "global_search"
   | "research_analysis"
   | "content_extraction"
   | "embedding";
@@ -17,6 +19,8 @@ export type AIUsage = {
   inputTokens: number;
   outputTokens: number;
   creditsUsed: number;
+  providerCredits?: number | null;
+  estimatedCostUsd?: number | null;
   requestId?: string;
   createdAt: string;
 };

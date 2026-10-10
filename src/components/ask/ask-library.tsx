@@ -164,7 +164,7 @@ export function AskLibrary({
     scope === "web" ? webSuggestions : librarySuggestions;
 
   return (
-    <main className="min-h-svh bg-background px-4 pb-16 pt-8 sm:px-8 sm:pt-12">
+    <main data-ask-shell className="min-h-svh bg-background px-4 pb-16 pt-6 sm:px-8 sm:pt-8">
       <div className="mx-auto max-w-3xl">
         <Link
           href="/app"
@@ -173,23 +173,23 @@ export function AskLibrary({
           ← Your Memory
         </Link>
 
-        <header className="mt-10 text-center sm:mt-14">
+        <header data-ask-header className="mt-6 text-center sm:mt-8">
           <span className="mx-auto flex size-12 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary">
             <Sparkles aria-hidden="true" className="size-5" />
           </span>
-          <h1 className="mt-5 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
+          <h1 data-page-title className="mt-4 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
             Ask your library
           </h1>
-          <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-text-muted sm:text-base">
-            Search your saved bookmarks or explore recommendations from across
-            the web.
+          <p data-page-summary className="mx-auto mt-3 max-w-xl text-sm leading-6 text-text-muted sm:text-base">
+            Ask about sources you&apos;ve saved to get grounded answers, or switch
+            to web search when you need something new.
           </p>
         </header>
 
         <div
           role="group"
           aria-label="Search location"
-          className="mx-auto mt-7 flex w-fit gap-1 rounded-full bg-surface p-1"
+          className="mx-auto mt-6 flex w-fit gap-1 rounded-full bg-surface p-1"
         >
           {(
             [
@@ -222,7 +222,7 @@ export function AskLibrary({
           ))}
         </div>
 
-        <form onSubmit={(event) => void ask(event)} className="mt-8 sm:mt-10">
+        <form onSubmit={(event) => void ask(event)} className="mt-6 sm:mt-8">
           <label htmlFor="ask-library-question" className="sr-only">
             {scope === "web"
               ? "Search the web"
@@ -265,7 +265,7 @@ export function AskLibrary({
         </form>
 
         {!response && !globalResults && !error && !isLoading && (
-          <section aria-label="Example questions" className="mt-7">
+          <section aria-label="Example questions" className="mt-6">
             <p className="mb-3 text-center text-xs font-medium text-text-muted">
               TRY ASKING
             </p>

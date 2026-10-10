@@ -5,6 +5,7 @@ import { Menu, X } from "lucide";
 import { MorphIcon } from "morphicons/react";
 import Link from "next/link";
 import Image from "next/image";
+import { ThemeToggle } from "./theme-toggle";
 
 const getStartedClassName =
   "group inline-flex h-9 items-center justify-center gap-2 rounded-full bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-[background-color,transform] active:scale-[0.97] hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
@@ -12,8 +13,9 @@ const getStartedClassName =
 const links = [
   { label: "Features", href: "#features" },
   { label: "How it works", href: "#how-it-works" },
-  { label: "Pricing", href: "#pricing" },
-  { label: "Resources", href: "#resources" },
+  { label: "Ask your library", href: "#ai" },
+  { label: "FAQ", href: "#faq" },
+  { label: "Contact", href: "#contact" },
 ];
 
 export function Navbar() {
@@ -31,7 +33,7 @@ export function Navbar() {
       >
         <Link
           href="/"
-          aria-label="Memory home"
+          aria-label="ThinkPin home"
           className="inline-flex shrink-0 items-center gap-2 text-[15px] font-semibold tracking-[-0.02em] text-text focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
         >
           <Image
@@ -68,6 +70,7 @@ export function Navbar() {
         </div>
 
         <div className="hidden shrink-0 items-center gap-6 lg:flex">
+          <ThemeToggle />
           <a
             href="/login"
             className="text-sm font-medium text-text transition-colors hover:text-primary focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-primary"
@@ -116,6 +119,7 @@ export function Navbar() {
               </a>
             ))}
             <div className="mt-2 flex items-center gap-3 border-t border-border pt-3">
+              <ThemeToggle />
               <a
                 href="/login"
                 onClick={closeMenu}

@@ -316,15 +316,15 @@ export function LibraryHealth({
           </Link>
           <div className="mt-5 flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+              <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
                 Your Internet Memory
               </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
+              <h1 data-page-title className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
                 Library Health
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-muted sm:text-base">
-                Check which saved links still work. Link checks do not change
-                your bookmarks or their content-processing status.
+              <p data-page-summary className="mt-2 max-w-2xl text-sm leading-relaxed text-text-muted sm:text-base">
+                Find broken or redirected links in your library so you can
+                decide what to revisit. Checks never change your saved content.
               </p>
             </div>
             <div className="rounded-xl border border-border/60 bg-surface-elevated px-4 py-3 text-sm text-text-muted">

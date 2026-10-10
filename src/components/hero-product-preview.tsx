@@ -1,36 +1,34 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
   ArrowUpRight,
   BookOpen,
-  Check,
   Command,
   Code2,
-  Link2,
+  Folder,
   Search,
-  Sparkles,
   CirclePlay,
+  Tags,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 
 const resources = [
   {
-    title: "Designing for the web",
-    domain: "read.cv",
+    title: "A saved design article",
+    domain: "example.com",
     icon: BookOpen,
     color: "from-orange-100 to-rose-50 dark:from-orange-950 dark:to-rose-950",
     iconColor: "text-orange-600 dark:text-orange-300",
   },
   {
-    title: "Linear — Build better",
+    title: "An open-source project",
     domain: "github.com",
     icon: Code2,
     color: "from-slate-200 to-slate-50 dark:from-slate-700 dark:to-slate-800",
     iconColor: "text-slate-700 dark:text-slate-200",
   },
   {
-    title: "The shape of things",
+    title: "A saved video",
     domain: "youtube.com",
     icon: CirclePlay,
     color: "from-red-100 to-orange-50 dark:from-red-950 dark:to-orange-950",
@@ -38,28 +36,13 @@ const resources = [
   },
 ];
 
-const steps = ["Save", "Analyzing", "Organized", "Connected"];
-
 export function HeroProductPreview() {
   const shouldReduceMotion = useReducedMotion();
-  const [activeStep, setActiveStep] = useState(0);
-
-  useEffect(() => {
-    if (shouldReduceMotion !== false) return;
-
-    const interval = window.setInterval(() => {
-      setActiveStep((step) => (step + 1) % steps.length);
-    }, 2400);
-
-    return () => window.clearInterval(interval);
-  }, [shouldReduceMotion]);
-
-  const shownStep = activeStep;
 
   return (
     <motion.div
       role="region"
-      aria-label="Preview of your organized saved resources"
+      aria-label="Illustrative library preview"
       className="relative mx-auto mt-14 w-full max-w-4xl text-left sm:mt-16"
       initial={shouldReduceMotion === true ? false : { opacity: 0, y: 24 }}
       animate={{ opacity: 1, y: 0 }}
@@ -82,7 +65,7 @@ export function HeroProductPreview() {
             className="size-[18px] shrink-0 text-text-muted"
           />
           <span className="flex-1 text-sm text-text-muted sm:text-[15px]">
-            Search your memory...
+            Search your library...
           </span>
           <kbd className="hidden items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-xs font-medium text-text-muted sm:inline-flex">
             <Command aria-hidden="true" className="size-3" />K
@@ -90,15 +73,15 @@ export function HeroProductPreview() {
         </div>
 
         <div className="grid gap-6 p-4 sm:gap-7 sm:p-7">
-          <section aria-labelledby="recently-saved-title">
+          <section aria-labelledby="example-saved-links-title">
             <div className="mb-3 flex items-center justify-between">
               <h2
-                id="recently-saved-title"
+                id="example-saved-links-title"
                 className="text-sm font-semibold text-text"
               >
-                Recently saved
+                Example saved links
               </h2>
-              <span className="text-xs text-text-muted">Today</span>
+              <span className="text-xs text-text-muted">Illustrative</span>
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               {resources.map((resource, index) => {
@@ -146,105 +129,30 @@ export function HeroProductPreview() {
           </section>
 
           <section
-            aria-labelledby="ai-discovered-title"
+            aria-labelledby="example-collection-title"
             className="rounded-2xl border border-border/60 bg-background/75 p-4 sm:p-5"
           >
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="flex size-7 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Sparkles aria-hidden="true" className="size-4" />
+                  <Folder aria-hidden="true" className="size-4" />
                 </span>
                 <h2
-                  id="ai-discovered-title"
+                  id="example-collection-title"
                   className="text-sm font-semibold text-text"
                 >
-                  AI discovered
+                  Example collection
                 </h2>
               </div>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-text">
-                <Link2 aria-hidden="true" className="size-3.5 text-success" />
-                12 related resources
-              </span>
+              <span className="text-xs text-text-muted">Reading list</span>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-              <span className="rounded-md border border-border/80 bg-surface-elevated px-2.5 py-1.5 text-text">
-                Web design
-              </span>
-              <span aria-hidden="true" className="text-primary/60">
-                ↗
-              </span>
-              <span className="rounded-md border border-border/80 bg-surface-elevated px-2.5 py-1.5 text-text">
-                Creative tools
-              </span>
-              <span aria-hidden="true" className="text-primary/60">
-                ↗
-              </span>
-              <span className="rounded-md border border-border/80 bg-surface-elevated px-2.5 py-1.5 text-text">
-                Inspiration
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-border/80 bg-surface-elevated px-2.5 py-1.5 text-text">
+                <Tags aria-hidden="true" className="size-3.5" />
+                Add tags to organize links
               </span>
             </div>
           </section>
-
-          <div
-            role="group"
-            aria-label={`Saving flow: ${steps[shownStep]}`}
-            className="flex flex-wrap items-center justify-center gap-x-2 gap-y-2 border-t border-border/70 pt-5 sm:gap-x-3"
-          >
-            {steps.map((step, index) => {
-              const isComplete = index < shownStep;
-              const isCurrent = index === shownStep;
-
-              return (
-                <div key={step} className="flex items-center gap-2 sm:gap-3">
-                  <span
-                    className={`inline-flex items-center gap-1.5 text-[11px] font-medium transition-colors duration-300 sm:text-xs ${
-                      isCurrent || isComplete
-                        ? "text-primary"
-                        : "text-text-muted/65"
-                    }`}
-                  >
-                    <span
-                      className={`flex size-4 items-center justify-center rounded-full ${
-                        isComplete
-                          ? "bg-success text-white"
-                          : isCurrent
-                            ? "bg-primary text-white"
-                            : "border border-border bg-surface"
-                      }`}
-                    >
-                      {isComplete ? (
-                        <Check aria-hidden="true" className="size-2.5" />
-                      ) : isCurrent ? (
-                        <motion.span
-                          aria-hidden="true"
-                          className="size-1.5 rounded-full bg-white"
-                          animate={
-                            shouldReduceMotion === true
-                              ? undefined
-                              : { scale: [1, 0.7, 1] }
-                          }
-                          transition={{
-                            duration: 1.2,
-                            repeat: Infinity,
-                            ease: "easeInOut",
-                          }}
-                        />
-                      ) : null}
-                    </span>
-                    {step}
-                  </span>
-                  {index < steps.length - 1 && (
-                    <span
-                      aria-hidden="true"
-                      className="text-[10px] text-text-muted/50"
-                    >
-                      →
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
     </motion.div>

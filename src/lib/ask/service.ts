@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAIProvider } from "../ai/router";
 import { AIProviderUnavailableError } from "../ai/types";
+import { recordProviderUsage } from "../ai/usage";
 import { buildAskContext } from "./context-builder";
 import {
   AskSearchIndexUnavailableError,
@@ -77,16 +78,15 @@ export async function askUserLibrary(
   ];
   const context = buildAskContext(candidates);
   if (context.sources.length === 0) {
-    const { error } = await adminClient.from("ai_usage").insert({
-      user_id: userId,
+    await recordProviderUsage(adminClient, {
+      userId,
       provider: embedding.provider,
       model: embedding.model,
-      action_type: "semantic_search",
-      input_tokens: embedding.inputTokens,
-      output_tokens: 0,
-      request_id: embedding.requestId ?? null,
+      actionType: "semantic_search",
+      inputTokens: embedding.inputTokens,
+      estimatedCostUsd: embedding.estimatedCostUsd,
+      requestId: embedding.requestId,
     });
-    if (error) throw error;
 
     return {
       query,

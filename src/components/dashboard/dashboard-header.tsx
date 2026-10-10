@@ -12,39 +12,41 @@ import { CreditBalance } from "../billing/credit-balance";
 
 export function DashboardHeader() {
   return (
-    <header className="border-b border-border/60 bg-background px-4 py-4 sm:px-8 sm:py-8 lg:px-12 lg:py-10">
+    <header className="border-b border-border/60 bg-background px-4 py-4 sm:px-8 sm:py-6 lg:px-12 lg:py-8">
       <div className="mx-auto max-w-container-xl">
-        <div className="flex flex-col gap-4 sm:gap-6 lg:flex-row lg:items-start lg:justify-between lg:gap-10">
-          <div>
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-medium text-text-muted sm:text-sm">
-                Good morning, David
-              </p>
-              <div className="flex items-center gap-2">
-                <CreditBalance />
-                <Link
-                  href="/app/billing"
-                  className="rounded-full px-3 py-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                >
-                  Plan &amp; billing
-                </Link>
-                <DashboardAccountButton />
-              </div>
-            </div>
-            <h1 className="mt-1.5 text-2xl font-semibold leading-tight tracking-[-0.045em] text-text sm:mt-2 sm:text-4xl">
+        <div className="flex items-center justify-end gap-2">
+          <CreditBalance />
+          <Link
+            href="/app/billing"
+            className="rounded-full px-3 py-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            Plan &amp; billing
+          </Link>
+          <DashboardAccountButton />
+        </div>
+
+        <div className="mt-3 flex flex-col gap-4 sm:mt-4 md:flex-row md:items-center md:justify-between md:gap-6">
+          <div className="min-w-0 flex-1">
+            <Link
+              href="/app/bookmarks"
+              className="inline-flex min-h-8 items-center rounded-full px-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:text-sm"
+            >
+              Your library
+            </Link>
+            <h1 data-page-title className="mt-1.5 text-2xl font-semibold leading-tight tracking-[-0.045em] text-text sm:mt-2 sm:text-4xl">
               Your Internet Memory
             </h1>
-            <p className="mt-1 max-w-xl text-xs leading-5 text-text-muted sm:mt-2 sm:text-base sm:leading-6">
-              Everything you&apos;ve saved, understood, and connected.
+            <p data-page-summary className="mt-1 max-w-xl text-xs leading-5 text-text-muted sm:mt-2 sm:text-base sm:leading-6">
+              Keep useful links together, then find the right one when you need it.
             </p>
           </div>
 
-          <div className="flex w-full flex-col gap-2 lg:w-auto lg:items-end lg:gap-3">
-            <div className="flex w-full items-center gap-2 lg:w-auto lg:gap-3">
+          <div className="flex w-full min-w-0 flex-col gap-2 md:w-[min(28rem,52%)] md:shrink-0 md:gap-2.5">
+            <div className="flex w-full items-center gap-2">
               <Link
                 href="/app/search"
                 aria-label="Search your memory. Open command menu with Command K."
-                className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-border/70 bg-surface-elevated pl-10 pr-3 text-xs text-text-muted outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 sm:h-11 sm:pr-3 sm:text-sm lg:w-64 lg:flex-none"
+                className="group relative flex h-10 min-w-0 flex-1 items-center rounded-full border border-border/70 bg-surface-elevated pl-10 pr-3 text-xs text-text-muted outline-none transition-[border-color,box-shadow] hover:border-primary/40 focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/10 sm:h-11 sm:pr-3 sm:text-sm"
               >
                 <Search
                   aria-hidden="true"
@@ -70,12 +72,12 @@ export function DashboardHeader() {
 
             <nav
               aria-label="Explore"
-              className="flex w-full items-center gap-1 sm:justify-end sm:gap-2 lg:w-auto lg:gap-3"
+              className="flex w-full flex-wrap items-center justify-end gap-1 sm:gap-1.5"
             >
               <Link
                 href="/app/research"
                 aria-label="Research projects"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-full px-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-2.5"
               >
                 <FlaskConical aria-hidden="true" className="size-4" />
                 <span>Research</span>
@@ -84,7 +86,7 @@ export function DashboardHeader() {
               <Link
                 href="/app/decisions"
                 aria-label="Decision boards"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-full px-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-2.5"
               >
                 <Scale aria-hidden="true" className="size-4" />
                 <span>Decisions</span>
@@ -93,7 +95,7 @@ export function DashboardHeader() {
               <Link
                 href="/app/learn"
                 aria-label="Learning paths"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-full px-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-2.5"
               >
                 <BookOpenCheck aria-hidden="true" className="size-4" />
                 <span>Learn</span>
@@ -101,7 +103,7 @@ export function DashboardHeader() {
               <Link
                 href="/app/library-health"
                 aria-label="Library Health"
-                className="inline-flex h-10 flex-1 items-center justify-center gap-1.5 rounded-full border border-border bg-surface-elevated px-2 text-[11px] font-medium text-text transition-colors hover:border-primary/30 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:gap-2 sm:px-4 sm:text-sm"
+                className="inline-flex min-h-9 flex-1 items-center justify-center gap-1 rounded-full px-2 text-xs font-medium text-text-muted transition-colors hover:bg-surface-elevated hover:text-text focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:flex-none sm:px-2.5"
               >
                 <Activity aria-hidden="true" className="size-4" />
                 <span>Health</span>

@@ -332,11 +332,11 @@ export function ResearchWorkspace({
               <FlaskConical aria-hidden="true" className="size-4" />
               Research workspace
             </p>
-            <h1 className="mt-2 text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
+            <h1 data-page-title className="mt-2 text-3xl font-semibold leading-tight tracking-[-0.045em] text-text sm:text-4xl">
               {project.title}
             </h1>
             {project.description && (
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
+              <p data-page-summary className="mt-2 max-w-2xl text-sm leading-6 text-text-muted">
                 {project.description}
               </p>
             )}

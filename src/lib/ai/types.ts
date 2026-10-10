@@ -8,6 +8,7 @@ export type AIEmbeddingResult = {
   dimensions: number;
   embeddings: number[][];
   inputTokens: number;
+  estimatedCostUsd?: number | null;
   requestId?: string;
 };
 
@@ -27,6 +28,13 @@ export type BookmarkEnrichment = {
     | "document"
     | "image"
     | "other";
+  usage?: {
+    provider: string;
+    model: string;
+    inputTokens: number;
+    outputTokens: number;
+    estimatedCostUsd: number | null;
+  };
   intent:
     | "research"
     | "learn"
@@ -58,6 +66,7 @@ export type AIAnswerResult = {
   answer: string;
   inputTokens: number;
   outputTokens: number;
+  estimatedCostUsd?: number | null;
 };
 
 export type AITask = "embedding" | "bookmark-enrichment" | "answer";

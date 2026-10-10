@@ -24,7 +24,6 @@ type BillingData = {
   plans: {
     free: boolean;
     pro: boolean;
-    power: boolean;
   };
 };
 
@@ -69,7 +68,7 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
   const [data, setData] = useState<BillingData | null>(null);
   const [loadError, setLoadError] = useState("");
   const [actionError, setActionError] = useState("");
-  const [pendingAction, setPendingAction] = useState<"pro" | "power" | "portal" | null>(
+  const [pendingAction, setPendingAction] = useState<"pro" | "portal" | null>(
     null,
   );
   const notice =
@@ -144,7 +143,7 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
     }
   }, [checkoutState, data]);
 
-  async function runAction(action: "pro" | "power" | "portal") {
+  async function runAction(action: "pro" | "portal") {
     if (pendingAction) return;
     setPendingAction(action);
     setActionError("");
@@ -209,14 +208,15 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
         </Link>
 
         <div className="mt-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
+          <p data-page-eyebrow className="text-xs font-semibold uppercase tracking-[0.14em] text-primary">
             Your account
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
+          <h1 data-page-title className="mt-2 text-3xl font-semibold tracking-[-0.045em] text-text sm:text-4xl">
             Plan &amp; billing
           </h1>
-          <p className="mt-2 text-sm leading-6 text-text-muted">
-            Your library stays yours. A plan expands how much intelligence you can use.
+          <p data-page-summary className="mt-2 text-sm leading-6 text-text-muted">
+            For people who want more AI-powered research and discovery: compare
+            plans and choose the credit level that fits how you use ThinkPin.
           </p>
         </div>
 
@@ -242,10 +242,11 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
                 <div>
                   <p className="text-xs font-medium text-text-muted">Current plan</p>
                   <h2 className="mt-1 text-2xl font-semibold tracking-[-0.04em] text-text">
-                    {data.subscription.plan === "team"
-                      ? "Team"
-                      : data.subscription.plan[0].toUpperCase() +
-                        data.subscription.plan.slice(1)}
+                    {data.subscription.plan === "free"
+                      ? "Free"
+                      : data.subscription.plan === "team"
+                        ? "Team"
+                        : "Pro"}
                   </h2>
                   {data.subscription.currentPeriodEnd && (
                     <p className="mt-1 text-xs text-text-muted">
@@ -312,20 +313,20 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
                   Prices are shown securely by Stripe at checkout.
                 </p>
               </div>
-              <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <PlanCard
                   title="Free"
-                  credits="500 credits / month"
+                  credits="750 credits / month"
                   description="Your personal library, browser extension, imports, and essential organization."
                   features={["Bookmarks & collections", "Basic and semantic search", "AI organization"]}
                   current={data.subscription.plan === "free"}
                 />
                 <PlanCard
                   title="Pro"
-                  credits="2,000 credits / month"
+                  credits={`${data.subscription.plan === "free" ? "3,500" : data.credits.limit.toLocaleString()} credits / month`}
                   description="Advanced intelligence for research, learning, and finding connections."
                   features={["Ask Your Library", "Research & Learning modes", "Archive & advanced tools"]}
-                  current={data.subscription.plan === "pro"}
+                  current={data.subscription.plan !== "free"}
                   actionLabel={
                     data.subscription.plan === "free" ? "Continue with Pro" : "Change plan"
                   }
@@ -333,20 +334,10 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
                   pending={pendingAction === "pro"}
                   onAction={() => runAction("pro")}
                 />
-                <PlanCard
-                  title="Power"
-                  credits="10,000 credits / month"
-                  description="A future tier for intensive use and advanced workflows."
-                  features={["Higher AI allowance", "Advanced automation", "API access"]}
-                  current={data.subscription.plan === "power"}
-                  actionLabel="Coming later"
-                  disabled
-                />
               </div>
               <p className="mt-4 text-[11px] leading-5 text-text-muted">
                 Credit amounts and per-action costs are provisional and will be tuned using
-                actual usage and provider costs. Power capabilities are planned; unavailable
-                features remain disabled until they are released.
+                actual usage and provider costs. Features not yet released remain unavailable.
               </p>
             </section>
           </>
@@ -418,6 +409,7 @@ function PlanCard({
       {actionLabel && (
         <button
           type="button"
+          data-primary-action
           disabled={disabled || current || !onAction}
           onClick={onAction}
           className="mt-5 min-h-10 rounded-full bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:bg-border disabled:text-text-muted"

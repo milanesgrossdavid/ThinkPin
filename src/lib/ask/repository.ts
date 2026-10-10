@@ -4,6 +4,7 @@ import type { AIAnswerResult, AIEmbeddingResult } from "../ai/types";
 import { searchBookmarks } from "../search/repository";
 import type { SearchBookmark } from "../search/types";
 import type { AskRetrievedChunk } from "./types";
+import { recordProviderUsage } from "../ai/usage";
 
 type AskChunkRow = {
   chunk_id: string | null;
@@ -117,24 +118,24 @@ export async function recordAskUsage(
   embedding: AIEmbeddingResult,
   answer: AIAnswerResult,
 ) {
-  const { error } = await adminClient.from("ai_usage").insert([
-    {
-      user_id: userId,
+  await Promise.all([
+    recordProviderUsage(adminClient, {
+      userId,
       provider: embedding.provider,
       model: embedding.model,
-      action_type: "semantic_search",
-      input_tokens: embedding.inputTokens,
-      output_tokens: 0,
-      request_id: embedding.requestId ?? null,
-    },
-    {
-      user_id: userId,
+      actionType: "semantic_search",
+      inputTokens: embedding.inputTokens,
+      estimatedCostUsd: embedding.estimatedCostUsd,
+      requestId: embedding.requestId,
+    }),
+    recordProviderUsage(adminClient, {
+      userId,
       provider: answer.provider,
       model: answer.model,
-      action_type: "ai_answer",
-      input_tokens: answer.inputTokens,
-      output_tokens: answer.outputTokens,
-    },
+      actionType: "ai_answer",
+      inputTokens: answer.inputTokens,
+      outputTokens: answer.outputTokens,
+      estimatedCostUsd: answer.estimatedCostUsd,
+    }),
   ]);
-  if (error) throw error;
 }
