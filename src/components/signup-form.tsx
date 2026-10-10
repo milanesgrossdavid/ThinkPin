@@ -8,6 +8,10 @@ import { MorphIcon } from "morphicons/react";
 import { AuthProviderButton } from "./auth-provider-button";
 import { createClient } from "../lib/supabase/client";
 import { ActionButton } from "./ui/ActionButton";
+import {
+  identifyAnalyticsUser,
+  trackProductEvent,
+} from "../lib/analytics";
 
 export function SignupForm() {
   const router = useRouter();
@@ -41,6 +45,11 @@ export function SignupForm() {
 
       if (signupError) {
         throw signupError;
+      }
+
+      if (data.user?.id) {
+        identifyAnalyticsUser(data.user.id);
+        trackProductEvent("signup");
       }
 
       if (data.session) {

@@ -182,7 +182,7 @@ export function SmartSave({ initialUrl }: { initialUrl?: string }) {
         contentStatus: record.contentStatus,
         createdAt: "createdAt" in record ? record.createdAt : undefined,
       });
-      notifyBookmarkSaved(saved.id);
+      if (!result.duplicate) notifyBookmarkSaved();
 
       if (result.duplicate) {
         setBookmark(saved);

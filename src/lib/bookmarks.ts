@@ -86,10 +86,8 @@ const bookmarksChangedEvent = "thinkpin:bookmarks-change";
 const bookmarkDetailChangedEvent = "thinkpin:bookmark-detail-change";
 export const bookmarkSavedEvent = "thinkpin:bookmark-saved";
 
-export function notifyBookmarkSaved(bookmarkId: string) {
-  window.dispatchEvent(
-    new CustomEvent(bookmarkSavedEvent, { detail: { bookmarkId } }),
-  );
+export function notifyBookmarkSaved() {
+  window.dispatchEvent(new Event(bookmarkSavedEvent));
 }
 
 function youtubeThumbnailForUrl(value: string): string | null {

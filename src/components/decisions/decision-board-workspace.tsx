@@ -19,6 +19,7 @@ import {
   deleteDecisionEvidenceAction,
 } from "../../app/actions/decisions";
 import type { GlobalSearchResult } from "../../lib/ask/web-search";
+import { notifyBookmarkSaved } from "../../lib/bookmarks";
 import type {
   DecisionBoard,
   DecisionEvidence,
@@ -120,6 +121,7 @@ export function DecisionBoardWorkspace({
     try {
       const saved = await saveBookmarkAction(result.url);
       if (!saved.ok) throw new Error(saved.error);
+      if (!saved.duplicate) notifyBookmarkSaved();
       const added = await addDecisionEvidenceAction({
         boardId: board.id,
         optionId,

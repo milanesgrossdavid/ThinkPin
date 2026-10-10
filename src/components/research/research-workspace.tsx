@@ -35,6 +35,7 @@ import type {
   ResearchSource,
 } from "../../types/research";
 import type { GlobalSearchResult } from "../../lib/ask/web-search";
+import { notifyBookmarkSaved } from "../../lib/bookmarks";
 
 type WorkspaceSource = {
   source: ResearchSource;
@@ -200,6 +201,7 @@ export function ResearchWorkspace({
         setMessage(saved.error);
         return;
       }
+      if (!saved.duplicate) notifyBookmarkSaved();
 
       const added = await addResearchSourceAction(project.id, saved.bookmark.id);
       if (!added.ok) {

@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import * as Sentry from "@sentry/nextjs";
 import Stripe from "stripe";
 import { getStripeWebhookConfig } from "../../../../lib/stripe/env";
 
@@ -146,6 +147,10 @@ export async function POST(request: Request) {
     return Response.json({ received: true });
   } catch (error) {
     console.error("Stripe webhook processing failed.", error);
+    Sentry.captureMessage("Stripe webhook processing failed.", {
+      level: "error",
+      tags: { operation: "stripe_webhook" },
+    });
     return Response.json(
       { error: "Webhook processing failed; Stripe may retry this event." },
       { status: 500 },

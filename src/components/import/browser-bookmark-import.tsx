@@ -14,6 +14,7 @@ import {
   RotateCw,
   Upload,
 } from "lucide-react";
+import { trackProductEvent } from "../../lib/analytics";
 
 type ImportCounts = {
   pending: number;
@@ -262,7 +263,9 @@ export function BrowserBookmarkImport({
           await loadJob(jobId);
         }
         await loadJob(jobId);
+        trackProductEvent("import_completed");
       } catch (cause) {
+        trackProductEvent("import_failed");
         setError(
           cause instanceof Error
             ? cause.message
@@ -327,8 +330,10 @@ export function BrowserBookmarkImport({
       }
       const result = payload as ImportSnapshot;
       setSnapshot(result);
+      trackProductEvent("import_started");
       router.replace(`/app/import?job=${encodeURIComponent(result.job.id)}`);
     } catch (cause) {
+      trackProductEvent("import_failed");
       setError(
         cause instanceof Error
           ? cause.message

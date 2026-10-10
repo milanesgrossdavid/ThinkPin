@@ -6,6 +6,7 @@ import { AppToaster } from "../components/feedback/AppToaster";
 import { SmartSaveDialog } from "../components/bookmarks/smart-save-dialog";
 import { BookmarkSync } from "../components/bookmarks/bookmark-sync";
 import { AuthSessionSync } from "../components/auth-session-sync";
+import { PrivacyAnalyticsConsent } from "../components/privacy-analytics-consent";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AppToaster>
           <BookmarkInteractionsProvider>
             <AuthSessionSync />
+            <PrivacyAnalyticsConsent />
             <BookmarkSync />
             {children}
             <CommandMenu />

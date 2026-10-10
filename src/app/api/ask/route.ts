@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { askUserLibrary, InvalidAskQuestionError } from "../../../lib/ask/service";
 import { AskSearchIndexUnavailableError } from "../../../lib/ask/repository";
 import { AIProviderUnavailableError } from "../../../lib/ai/types";
@@ -147,6 +148,10 @@ export async function POST(request: Request) {
       );
     }
     console.error("Ask Your Library request failed.", error);
+    Sentry.captureMessage("Ask Your Library request failed.", {
+      level: "error",
+      tags: { operation: "ask_library" },
+    });
     return NextResponse.json(
       { error: "Your library could not be queried right now." },
       { status: 500 },

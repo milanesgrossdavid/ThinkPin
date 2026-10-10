@@ -754,6 +754,45 @@ después de las migraciones de bookmarks y documentos. Añade
 hash/index de contenido. Las migraciones de creación incluyen esos campos en
 instalaciones nuevas.
 
+#### Monitoring, analytics & product observability
+
+La aplicación admite Sentry para errores y trazas de Next.js y PostHog para
+analítica de producto. Configura `NEXT_PUBLIC_SENTRY_DSN` y
+`NEXT_PUBLIC_POSTHOG_KEY` en el entorno de despliegue; `SENTRY_DSN` es opcional
+y solo para el servidor, y `NEXT_PUBLIC_POSTHOG_HOST` permite elegir el host
+regional. Sin esas variables, los SDK no se inicializan. PostHog permanece
+desactivado hasta que cada usuario acepte analítica desde el aviso de privacidad;
+la elección se puede cambiar después desde **Privacy settings**.
+
+PostHog tiene autocaptura, pageviews automáticos y grabación de sesiones
+desactivados. Registra pageviews sin query strings y eventos explícitos:
+`signup`, `bookmark_saved`, `first_bookmark`, `search_used`, `first_search`,
+`ai_used`, `ai_limit_reached`, `import_started`, `import_completed`,
+`import_failed`, `collection_created`, `subscription_started` y
+`subscription_cancelled`. Las propiedades se limitan a modo y cantidad de
+resultados o plan; no se envían consultas, URLs, nombres de archivos, notas,
+contenido de bookmarks, email ni contraseñas. La identidad de PostHog usa el
+ID interno de Supabase, solo después del consentimiento. Los eventos de primera
+acción se deduplican localmente por identidad.
+
+El onboarding actual es una demostración local y no representa activación real;
+por eso no emite eventos de onboarding ni se debe usar para medir la conversión
+de registro. `first_bookmark` y `first_search` solo son observables si el
+consentimiento está activo cuando se produce la acción. La diferencia temporal
+entre `signup` y `first_bookmark` permite estimar `time_to_first_bookmark` para
+esas cuentas, no para quienes aceptan analítica después. WAU, retención y
+bookmarks semanales se calculan como agregados sobre eventos consentidos, no se
+emiten como eventos semanales sintéticos. No se fijan objetivos antes de tener
+una línea base.
+
+Sentry captura errores de requests no controlados, errores explícitos de Ask,
+búsqueda, importación y webhooks de Stripe, y una muestra del 10 % de trazas.
+Se eliminan request data, identidad, breadcrumbs y atributos de URL/query,
+request bodies, tokens y cookies antes del envío. Las trazas pueden ayudar a
+medir latencia de requests; el coste de proveedores externos, reintentos y
+consumo agregado debe analizarse por separado con sus registros actuales de
+AI usage, billing y jobs.
+
 ## Comandos
 
 #### Storage y pgvector

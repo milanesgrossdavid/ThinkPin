@@ -37,6 +37,7 @@ import {
   loadCollections,
   subscribeToCollections,
 } from "../../lib/collections";
+import { trackProductEvent } from "../../lib/analytics";
 
 type BookmarkDetailViewProps = {
   bookmark: Bookmark;
@@ -98,6 +99,10 @@ export function BookmarkDetailView({
   bookmark,
   collection,
 }: BookmarkDetailViewProps) {
+  useEffect(() => {
+    trackProductEvent("bookmark_opened");
+  }, [bookmark.id]);
+
   const subscribe = useCallback(
     (onChange: () => void) =>
       subscribeToBookmarkDetail(bookmark.id, onChange),

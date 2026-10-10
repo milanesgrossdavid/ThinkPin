@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import { authenticateSupabaseRequest } from "../../../../lib/supabase/authenticate-request";
 import {
   MAX_IMPORT_FILE_BYTES,
@@ -211,6 +212,10 @@ export async function POST(request: Request) {
       );
     }
     console.error("Browser bookmark import preview failed.", error);
+    Sentry.captureMessage("Browser bookmark import preview failed.", {
+      level: "error",
+      tags: { operation: "bookmark_import" },
+    });
     return jsonError("The bookmark export could not be prepared.", 500);
   }
 }

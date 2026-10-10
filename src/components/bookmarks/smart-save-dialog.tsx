@@ -33,7 +33,6 @@ function toSavedBookmark(
     contentStatus: record.contentStatus,
     createdAt: "createdAt" in record ? record.createdAt : undefined,
   });
-  notifyBookmarkSaved(bookmark.id);
   return bookmark;
 }
 
@@ -135,6 +134,7 @@ export function SmartSaveDialog() {
       }
 
       toSavedBookmark(result.bookmark);
+      if (!result.duplicate) notifyBookmarkSaved();
       if (result.duplicate) {
         toast.info("This bookmark is already saved");
       } else {

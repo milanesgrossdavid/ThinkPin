@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 import {
   InvalidSearchError,
   parseSearchFilters,
@@ -155,6 +156,10 @@ export async function GET(request: Request) {
       );
     }
     console.error("Bookmark search failed.", error);
+    Sentry.captureMessage("Bookmark search failed.", {
+      level: "error",
+      tags: { operation: "bookmark_search" },
+    });
     return NextResponse.json(
       { error: "Search could not be completed." },
       { status: 500 },

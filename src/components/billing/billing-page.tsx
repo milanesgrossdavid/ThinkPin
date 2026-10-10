@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Check, ExternalLink, Sparkles } from "lucide-react";
 import type { BillingPlan } from "../../lib/billing/plans";
+import { trackProductEventOnce } from "../../lib/analytics";
 
 type BillingData = {
   subscription: {
@@ -108,6 +109,41 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
     };
   }, [checkoutState]);
 
+  useEffect(() => {
+    if (!data) return;
+    if (
+      checkoutState === "success" &&
+      data.subscription.plan !== "free" &&
+      (data.subscription.status === "active" ||
+        data.subscription.status === "trialing")
+    ) {
+      trackProductEventOnce("subscription_started", "subscription-started", {
+        plan: data.subscription.plan,
+      });
+    }
+
+    try {
+      const portalPlan = window.sessionStorage.getItem(
+        "thinkpin:billing-portal-plan",
+      );
+      if (
+        portalPlan &&
+        portalPlan !== "free" &&
+        (data.subscription.status === "canceled" ||
+          data.subscription.plan === "free")
+      ) {
+        trackProductEventOnce(
+          "subscription_cancelled",
+          "subscription-cancelled",
+          { plan: portalPlan },
+        );
+        window.sessionStorage.removeItem("thinkpin:billing-portal-plan");
+      }
+    } catch (error) {
+      console.error("Could not read billing analytics state.", error);
+    }
+  }, [checkoutState, data]);
+
   async function runAction(action: "pro" | "power" | "portal") {
     if (pendingAction) return;
     setPendingAction(action);
@@ -137,6 +173,16 @@ export function BillingPage({ checkoutState }: { checkoutState?: string }) {
         typeof payload.url !== "string"
       ) {
         throw new Error("The billing service returned an invalid redirect.");
+      }
+      if (action === "portal" && data) {
+        try {
+          window.sessionStorage.setItem(
+            "thinkpin:billing-portal-plan",
+            data.subscription.plan,
+          );
+        } catch (error) {
+          console.error("Could not persist the billing portal state.", error);
+        }
       }
       window.location.assign(payload.url);
     } catch (error) {

@@ -2,6 +2,10 @@
 
 import { useEffect } from "react";
 import { createClient } from "../lib/supabase/client";
+import {
+  identifyAnalyticsUser,
+  resetAnalyticsUser,
+} from "../lib/analytics";
 
 const authStorageKey = "thinkpin:is-authenticated";
 
@@ -25,6 +29,7 @@ export function AuthSessionSync() {
       }
       if (isMounted) {
         saveAuthStatus(Boolean(data.session));
+        if (data.session?.user.id) identifyAnalyticsUser(data.session.user.id);
       }
     });
 
@@ -33,8 +38,10 @@ export function AuthSessionSync() {
     } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         saveAuthStatus(false);
+        resetAnalyticsUser();
       } else if (session) {
         saveAuthStatus(true);
+        identifyAnalyticsUser(session.user.id);
       }
     });
 

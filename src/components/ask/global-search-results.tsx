@@ -3,6 +3,7 @@
 import { ArrowUpRight, BookmarkPlus, Check, Globe2 } from "lucide-react";
 import { useState } from "react";
 import { saveBookmarkAction } from "../../app/actions/bookmarks";
+import { notifyBookmarkSaved } from "../../lib/bookmarks";
 import type { GlobalSearchResult } from "../../lib/ask/web-search";
 import { useAppToast } from "../feedback/AppToaster";
 
@@ -24,6 +25,7 @@ export function GlobalSearchResults({
         toast.error("Couldn't save this bookmark", saved.error);
         return;
       }
+      if (!saved.duplicate) notifyBookmarkSaved();
       setSavedUrls((current) => new Set(current).add(result.url));
       if (saved.duplicate) {
         toast.info("This bookmark is already saved");

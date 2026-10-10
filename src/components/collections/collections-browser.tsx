@@ -41,6 +41,7 @@ import { mutatePrivateCollection, syncPrivateCollections } from "../../lib/colle
 import { ErrorState } from "../feedback/ErrorState";
 import { useAppToast } from "../feedback/AppToaster";
 import { ActionButton } from "../ui/ActionButton";
+import { trackProductEvent } from "../../lib/analytics";
 
 type CollectionCardModel = {
   id: string;
@@ -454,6 +455,7 @@ export function CollectionsBrowser({
               }
             : { name, description },
         );
+        if (!editingCollection) trackProductEvent("collection_created");
       } catch (error) {
         const reason =
           error instanceof Error ? error.message : "The collection could not be saved.";

@@ -26,6 +26,10 @@ import { BookmarkGridSkeleton, BookmarkSkeleton } from "../skeletons/app-skeleto
 import { reindexMissingBookmarksAction } from "../../app/actions/search";
 import type { AskResponse } from "../../lib/ask/types";
 import { AskSourcesList } from "../ask/ask-sources-list";
+import {
+  trackProductEvent,
+  trackProductEventOnce,
+} from "../../lib/analytics";
 
 function isAskResponse(value: unknown): value is AskResponse {
   return (
@@ -153,6 +157,14 @@ export function SearchPage({
       });
       const payload: unknown = await response.json();
       if (!response.ok) {
+        if (
+          typeof payload === "object" &&
+          payload !== null &&
+          "code" in payload &&
+          payload.code === "CREDITS_EXHAUSTED"
+        ) {
+          trackProductEvent("ai_limit_reached");
+        }
         const message =
           typeof payload === "object" &&
           payload !== null &&
@@ -167,6 +179,7 @@ export function SearchPage({
       }
       if (requestId === aiRequestId.current) {
         setAiResponse(payload);
+        trackProductEvent("ai_used");
       }
     } catch (error) {
       if (requestId === aiRequestId.current) {
@@ -229,6 +242,15 @@ export function SearchPage({
       .then(async (response) => {
         const payload: unknown = await response.json();
         if (!response.ok) {
+          if (
+            mode === "semantic" &&
+            typeof payload === "object" &&
+            payload !== null &&
+            "code" in payload &&
+            payload.code === "CREDITS_EXHAUSTED"
+          ) {
+            trackProductEvent("ai_limit_reached");
+          }
           const message =
             typeof payload === "object" &&
             payload !== null &&
@@ -262,6 +284,12 @@ export function SearchPage({
             topics: result.relatedTopics,
             mode,
           });
+          trackProductEvent("search_used", {
+            mode,
+            result_count: result.results.length,
+            has_results: result.results.length > 0,
+          });
+          trackProductEventOnce("first_search", "first-search");
         }
       })
       .catch((error: unknown) => {
